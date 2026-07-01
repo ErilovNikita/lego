@@ -3584,10 +3584,12 @@ func displayDNSHelp(w io.Writer, name string) error {
 
 		ew.writeln(`Credentials:`)
 		ew.writeln(`	- "PDNS_API_KEY":	API key`)
-		ew.writeln(`	- "PDNS_API_URL":	API URL`)
+		ew.writeln(`	- "PDNS_API_KEYS":	Comma-separated API keys, either one key for all API URLs or one key per API URL`)
+		ew.writeln(`	- "PDNS_API_URLS":	Comma-separated API URLs`)
 		ew.writeln()
 
 		ew.writeln(`Additional Configuration:`)
+		ew.writeln(`	- "PDNS_API_URL":	API URL. Deprecated, use PDNS_API_URLS.`)
 		ew.writeln(`	- "PDNS_API_VERSION":	Skip API version autodetection and use the provided version number.`)
 		ew.writeln(`	- "PDNS_HTTP_TIMEOUT":	API request timeout in seconds (Default: 30)`)
 		ew.writeln(`	- "PDNS_POLLING_INTERVAL":	Time between DNS propagation check in seconds (Default: 2)`)

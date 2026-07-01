@@ -26,7 +26,7 @@ Configuration for [PowerDNS](https://www.powerdns.com/).
 Here is an example bash command using the PowerDNS provider:
 
 ```bash
-PDNS_API_URL=http://pdns-server:80/ \
+PDNS_API_URLS=http://pdns-server-1:80/,http://pdns-server-2:80/ \
 PDNS_API_KEY=xxxx \
 lego run --dns pdns -d '*.example.com' -d example.com
 ```
@@ -39,7 +39,8 @@ lego run --dns pdns -d '*.example.com' -d example.com
 | Environment Variable Name | Description |
 |-----------------------|-------------|
 | `PDNS_API_KEY` | API key |
-| `PDNS_API_URL` | API URL |
+| `PDNS_API_KEYS` | Comma-separated API keys, either one key for all API URLs or one key per API URL |
+| `PDNS_API_URLS` | Comma-separated API URLs |
 
 The environment variable names can be suffixed by `_FILE` to reference a file instead of a value.
 More information [here]({{% ref "dns#configuration-and-credentials" %}}).
@@ -49,6 +50,7 @@ More information [here]({{% ref "dns#configuration-and-credentials" %}}).
 
 | Environment Variable Name | Description |
 |--------------------------------|-------------|
+| `PDNS_API_URL` | API URL. Deprecated, use PDNS_API_URLS. |
 | `PDNS_API_VERSION` | Skip API version autodetection and use the provided version number. |
 | `PDNS_HTTP_TIMEOUT` | API request timeout in seconds (Default: 30) |
 | `PDNS_POLLING_INTERVAL` | Time between DNS propagation check in seconds (Default: 2) |

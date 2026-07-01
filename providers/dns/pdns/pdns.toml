@@ -5,7 +5,7 @@ Code = "pdns"
 Since = "v0.4.0"
 
 Example = '''
-PDNS_API_URL=http://pdns-server:80/ \
+PDNS_API_URLS=http://pdns-server-1:80/,http://pdns-server-2:80/ \
 PDNS_API_KEY=xxxx \
 lego run --dns pdns -d '*.example.com' -d example.com
 '''
@@ -24,8 +24,10 @@ PowerDNS Notes:
 [Configuration]
   [Configuration.Credentials]
     PDNS_API_KEY = "API key"
-    PDNS_API_URL = "API URL"
+    PDNS_API_KEYS = "Comma-separated API keys, either one key for all API URLs or one key per API URL"
+    PDNS_API_URLS = "Comma-separated API URLs"
   [Configuration.Additional]
+    PDNS_API_URL = "API URL. Deprecated, use PDNS_API_URLS."
     PDNS_SERVER_NAME = "Name of the server in the URL, 'localhost' by default"
     PDNS_API_VERSION = "Skip API version autodetection and use the provided version number."
     PDNS_POLLING_INTERVAL = "Time between DNS propagation check in seconds (Default: 2)"
