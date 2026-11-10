@@ -4,11 +4,10 @@ import (
 	"errors"
 	"net/url"
 
-	"github.com/go-acme/lego/v5/acme"
-	"github.com/go-acme/lego/v5/acme/api"
-	"github.com/go-acme/lego/v5/certificate"
-	"github.com/go-acme/lego/v5/challenge/resolver"
-	"github.com/go-acme/lego/v5/registration"
+	"github.com/go-acme/lego/v4/acme/api"
+	"github.com/go-acme/lego/v4/certificate"
+	"github.com/go-acme/lego/v4/challenge/resolver"
+	"github.com/go-acme/lego/v4/registration"
 )
 
 // Client is the user-friendly way to ACME.
@@ -43,7 +42,7 @@ func NewClient(config *Config) (*Client, error) {
 
 	var kid string
 	if reg := config.User.GetRegistration(); reg != nil {
-		kid = reg.Location
+		kid = reg.URI
 	}
 
 	core, err := api.New(config.HTTPClient, config.UserAgent, config.CADirURL, kid, privateKey)
@@ -56,8 +55,10 @@ func NewClient(config *Config) (*Client, error) {
 	prober := resolver.NewProber(solversManager)
 
 	options := certificate.CertifierOptions{
+		KeyType:             config.Certificate.KeyType,
 		Timeout:             config.Certificate.Timeout,
 		OverallRequestLimit: config.Certificate.OverallRequestLimit,
+		DisableCommonName:   config.Certificate.DisableCommonName,
 	}
 
 	certifier := certificate.NewCertifier(core, prober, options)
@@ -70,7 +71,12 @@ func NewClient(config *Config) (*Client, error) {
 	}, nil
 }
 
-// GetServerMetadata returns the current server metadata from the Directory.
-func (c *Client) GetServerMetadata() acme.Meta {
-	return c.core.GetDirectory().Meta
+// GetToSURL returns the current ToS URL from the Directory.
+func (c *Client) GetToSURL() string {
+	return c.core.GetDirectory().Meta.TermsOfService
+}
+
+// GetExternalAccountRequired returns the External Account Binding requirement of the Directory.
+func (c *Client) GetExternalAccountRequired() bool {
+	return c.core.GetDirectory().Meta.ExternalAccountRequired
 }

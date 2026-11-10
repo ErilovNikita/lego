@@ -2,13 +2,12 @@
 package memcached
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"path"
 
-	"github.com/bradfitz/gomemcache/memcache"
-	"github.com/go-acme/lego/v5/challenge/http01"
+	"github.com/go-acme/lego/v4/challenge/http01"
+	"github.com/rainycape/memcache"
 )
 
 // HTTPProvider implements HTTPProvider for `http-01` challenge.
@@ -22,40 +21,42 @@ func NewMemcachedProvider(hosts []string) (*HTTPProvider, error) {
 		return nil, errors.New("no memcached hosts provided")
 	}
 
-	return &HTTPProvider{hosts: hosts}, nil
+	c := &HTTPProvider{
+		hosts: hosts,
+	}
+
+	return c, nil
 }
 
 // Present makes the token available at `HTTP01ChallengePath(token)` by creating a file in the given webroot path.
-func (w *HTTPProvider) Present(_ context.Context, _, token, keyAuth string) error {
-	challengePath := path.Join("/", http01.ChallengePath(token))
-
-	item := &memcache.Item{
-		Key:        challengePath,
-		Value:      []byte(keyAuth),
-		Expiration: 60,
-	}
-
+func (w *HTTPProvider) Present(domain, token, keyAuth string) error {
 	var errs []error
 
-	for _, host := range w.hosts {
-		mc := memcache.New(host)
+	challengePath := path.Join("/", http01.ChallengePath(token))
 
-		err := mc.Add(item)
+	for _, host := range w.hosts {
+		mc, err := memcache.New(host)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
+
+		_ = mc.Add(&memcache.Item{
+			Key:        challengePath,
+			Value:      []byte(keyAuth),
+			Expiration: 60,
+		})
 	}
 
 	if len(errs) == len(w.hosts) {
-		return fmt.Errorf("unable to store key in any of the memcached hosts: %w", errors.Join(errs...))
+		return fmt.Errorf("unable to store key in any of the memcache hosts: %v", errs)
 	}
 
 	return nil
 }
 
 // CleanUp removes the file created for the challenge.
-func (w *HTTPProvider) CleanUp(_ context.Context, _, _, _ string) error {
+func (w *HTTPProvider) CleanUp(domain, token, keyAuth string) error {
 	// Memcached will clean up itself, that's what expiration is for.
 	return nil
 }

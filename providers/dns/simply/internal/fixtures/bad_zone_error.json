@@ -1,3 +1,4 @@
 {
-  "error": "Unknown or invalid product reference"
+  "status": 404,
+  "message": "Unknown or invalid product reference"
 }

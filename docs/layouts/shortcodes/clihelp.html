@@ -1,0 +1,12 @@
+{{ $tabs := slice }}
+
+{{ $commands := index $.Site.Data.zz_cli_help "command" }}
+{{ range $idx, $tab := $commands }}
+  {{ $content := (print "```\n" $tab.content "\n```") }}
+  {{ $tabs = $tabs | append (dict "title" $tab.title "content" ($content | page.RenderString) "icon" "terminal") }}
+{{ end }}
+
+{{ partial "shortcodes/tabs.html" (dict
+  "page" page
+  "content" $tabs
+) }}

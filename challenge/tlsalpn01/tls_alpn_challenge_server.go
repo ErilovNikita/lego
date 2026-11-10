@@ -1,17 +1,14 @@
 package tlsalpn01
 
 import (
-	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/log"
+	"github.com/go-acme/lego/v4/log"
 )
 
 const (
@@ -23,52 +20,34 @@ const (
 	defaultTLSPort = "443"
 )
 
-var _ challenge.Provider = (*ProviderServer)(nil)
-
-type Options struct {
-	Network      string
-	NetworkStack challenge.NetworkStack
-	Host         string
-	Port         string
-}
-
 // ProviderServer implements ChallengeProvider for `TLS-ALPN-01` challenge.
 // It may be instantiated without using the NewProviderServer
 // if you want only to use the default values.
 type ProviderServer struct {
-	network string
-	address string
-
+	iface    string
+	port     string
 	listener net.Listener
 }
 
-// NewProviderServerWithOptions creates a new ProviderServer.
-func NewProviderServerWithOptions(opts Options) *ProviderServer {
-	if opts.Port == "" {
-		// Fallback to port 443 if the port was not provided.
-		opts.Port = defaultTLSPort
-	}
-
-	if opts.Network == "" {
-		opts.Network = "tcp"
-	}
-
-	return &ProviderServer{
-		network: opts.NetworkStack.Network(opts.Network),
-		address: net.JoinHostPort(opts.Host, opts.Port),
-	}
+// NewProviderServer creates a new ProviderServer on the selected interface and port.
+// Setting iface and / or port to an empty string will make the server fall back to
+// the "any" interface and port 443 respectively.
+func NewProviderServer(iface, port string) *ProviderServer {
+	return &ProviderServer{iface: iface, port: port}
 }
 
-// NewProviderServer creates a new ProviderServer on the selected interface and port.
-// Setting host and / or port to an empty string will make the server fall back to
-// the "any" interface and port 443 respectively.
-func NewProviderServer(host, port string) *ProviderServer {
-	return NewProviderServerWithOptions(Options{Host: host, Port: port})
+func (s *ProviderServer) GetAddress() string {
+	return net.JoinHostPort(s.iface, s.port)
 }
 
 // Present generates a certificate with an SHA-256 digest of the keyAuth provided
 // as the acmeValidation-v1 extension value to conform to the ACME-TLS-ALPN spec.
-func (s *ProviderServer) Present(ctx context.Context, domain, token, keyAuth string) error {
+func (s *ProviderServer) Present(domain, token, keyAuth string) error {
+	if s.port == "" {
+		// Fallback to port 443 if the port was not provided.
+		s.port = defaultTLSPort
+	}
+
 	// Generate the challenge certificate using the provided keyAuth and domain.
 	cert, err := ChallengeCert(domain, keyAuth)
 	if err != nil {
@@ -86,28 +65,16 @@ func (s *ProviderServer) Present(ctx context.Context, domain, token, keyAuth str
 	tlsConf.NextProtos = []string{ACMETLS1Protocol}
 
 	// Create the listener with the created tls.Config.
-	var lc net.ListenConfig
-
-	l, err := lc.Listen(ctx, s.network, s.GetAddress())
+	s.listener, err = tls.Listen("tcp", s.GetAddress(), tlsConf)
 	if err != nil {
 		return fmt.Errorf("could not start HTTPS server for challenge: %w", err)
 	}
 
-	s.listener = tls.NewListener(l, tlsConf)
-
-	srv := &http.Server{
-		Handler:           http.NewServeMux(),
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
-
 	// Shut the server down when we're finished.
 	go func() {
-		err := srv.Serve(s.listener)
+		err := http.Serve(s.listener, nil)
 		if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			log.Warn("tlsalpn01: HTTP server serve.", log.ErrorAttr(err))
+			log.Println(err)
 		}
 	}()
 
@@ -115,7 +82,7 @@ func (s *ProviderServer) Present(ctx context.Context, domain, token, keyAuth str
 }
 
 // CleanUp closes the HTTPS server.
-func (s *ProviderServer) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
+func (s *ProviderServer) CleanUp(domain, token, keyAuth string) error {
 	if s.listener == nil {
 		return nil
 	}
@@ -126,8 +93,4 @@ func (s *ProviderServer) CleanUp(ctx context.Context, domain, token, keyAuth str
 	}
 
 	return nil
-}
-
-func (s *ProviderServer) GetAddress() string {
-	return s.address
 }

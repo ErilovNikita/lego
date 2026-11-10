@@ -1,12 +1,11 @@
 package gandiv5
 
 import (
-	"context"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/tester"
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -116,7 +115,7 @@ func TestDNSProvider(t *testing.T) {
 	fakeKeyAuth := "XXXX"
 
 	// define function to override findZoneByFqdn with
-	fakeFindZoneByFqdn := func(ctx context.Context, fqdn string) (string, error) {
+	fakeFindZoneByFqdn := func(fqdn string) (string, error) {
 		return "example.com.", nil
 	}
 
@@ -130,10 +129,10 @@ func TestDNSProvider(t *testing.T) {
 	provider.findZoneByFqdn = fakeFindZoneByFqdn
 
 	// run Present
-	err := provider.Present(t.Context(), "abc.def.example.com", "", fakeKeyAuth)
+	err := provider.Present("abc.def.example.com", "", fakeKeyAuth)
 	require.NoError(t, err)
 
 	// run CleanUp
-	err = provider.CleanUp(t.Context(), "abc.def.example.com", "", fakeKeyAuth)
+	err = provider.CleanUp("abc.def.example.com", "", fakeKeyAuth)
 	require.NoError(t, err)
 }

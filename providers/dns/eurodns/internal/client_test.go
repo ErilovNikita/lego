@@ -1,14 +1,15 @@
 package internal
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"slices"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/ptr"
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
+	"github.com/go-acme/lego/v4/providers/dns/internal/ptr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -40,7 +41,7 @@ func TestClient_GetZone(t *testing.T) {
 		).
 		Build(t)
 
-	zone, err := client.GetZone(t.Context(), "example.com")
+	zone, err := client.GetZone(context.Background(), "example.com")
 	require.NoError(t, err)
 
 	expected := &Zone{
@@ -62,7 +63,7 @@ func TestClient_GetZone_error(t *testing.T) {
 		).
 		Build(t)
 
-	_, err := client.GetZone(t.Context(), "example.com")
+	_, err := client.GetZone(context.Background(), "example.com")
 	require.Error(t, err)
 
 	require.EqualError(t, err, "401: INVALID_API_KEY: Invalid API Key")
@@ -92,7 +93,7 @@ func TestClient_SaveZone(t *testing.T) {
 		MailForwards:  []MailForward{fakeMailForward()},
 	}
 
-	err := client.SaveZone(t.Context(), "example.com", zone)
+	err := client.SaveZone(context.Background(), "example.com", zone)
 	require.NoError(t, err)
 }
 
@@ -118,7 +119,7 @@ func TestClient_SaveZone_emptyForwards(t *testing.T) {
 		Records:       slices.Concat([]Record{fakeARecord(), record}),
 	}
 
-	err := client.SaveZone(t.Context(), "example.com", zone)
+	err := client.SaveZone(context.Background(), "example.com", zone)
 	require.NoError(t, err)
 }
 
@@ -138,7 +139,7 @@ func TestClient_SaveZone_error(t *testing.T) {
 		MailForwards:  []MailForward{fakeMailForward()},
 	}
 
-	err := client.SaveZone(t.Context(), "example.com", zone)
+	err := client.SaveZone(context.Background(), "example.com", zone)
 	require.Error(t, err)
 
 	require.EqualError(t, err, "401: INVALID_API_KEY: Invalid API Key")
@@ -167,7 +168,7 @@ func TestClient_ValidateZone(t *testing.T) {
 		MailForwards:  []MailForward{fakeMailForward()},
 	}
 
-	zone, err := client.ValidateZone(t.Context(), "example.com", zone)
+	zone, err := client.ValidateZone(context.Background(), "example.com", zone)
 	require.NoError(t, err)
 
 	expected := &Zone{
@@ -205,7 +206,7 @@ func TestClient_ValidateZone_report(t *testing.T) {
 		MailForwards:  []MailForward{fakeMailForward()},
 	}
 
-	zone, err := client.ValidateZone(t.Context(), "example.com", zone)
+	zone, err := client.ValidateZone(context.Background(), "example.com", zone)
 	require.NoError(t, err)
 
 	expected := &Zone{
@@ -238,7 +239,7 @@ func TestClient_ValidateZone_error(t *testing.T) {
 		MailForwards:  []MailForward{fakeMailForward()},
 	}
 
-	_, err := client.ValidateZone(t.Context(), "example.com", zone)
+	_, err := client.ValidateZone(context.Background(), "example.com", zone)
 	require.Error(t, err)
 
 	require.EqualError(t, err, "401: INVALID_API_KEY: Invalid API Key")

@@ -1,18 +1,17 @@
 package dns01
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/go-acme/lego/v5/acme"
-	"github.com/go-acme/lego/v5/acme/api"
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/internal/tester"
-	"github.com/go-acme/lego/v5/internal/tester/dnsmock"
+	"github.com/go-acme/lego/v4/acme"
+	"github.com/go-acme/lego/v4/acme/api"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/platform/tester"
+	"github.com/go-acme/lego/v4/platform/tester/dnsmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,17 +20,17 @@ type providerMock struct {
 	present, cleanUp error
 }
 
-func (p *providerMock) Present(_ context.Context, _, _, _ string) error { return p.present }
-func (p *providerMock) CleanUp(_ context.Context, _, _, _ string) error { return p.cleanUp }
+func (p *providerMock) Present(domain, token, keyAuth string) error { return p.present }
+func (p *providerMock) CleanUp(domain, token, keyAuth string) error { return p.cleanUp }
 
 type providerTimeoutMock struct {
 	present, cleanUp  error
 	timeout, interval time.Duration
 }
 
-func (p *providerTimeoutMock) Present(_ context.Context, _, _, _ string) error { return p.present }
-func (p *providerTimeoutMock) CleanUp(_ context.Context, _, _, _ string) error { return p.cleanUp }
-func (p *providerTimeoutMock) Timeout() (time.Duration, time.Duration)         { return p.timeout, p.interval }
+func (p *providerTimeoutMock) Present(domain, token, keyAuth string) error { return p.present }
+func (p *providerTimeoutMock) CleanUp(domain, token, keyAuth string) error { return p.cleanUp }
+func (p *providerTimeoutMock) Timeout() (time.Duration, time.Duration)     { return p.timeout, p.interval }
 
 func TestChallenge_PreSolve(t *testing.T) {
 	server := tester.MockACMEServer().BuildHTTPS(t)
@@ -51,14 +50,14 @@ func TestChallenge_PreSolve(t *testing.T) {
 	}{
 		{
 			desc:     "success",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{},
 		},
 		{
 			desc:     "validate fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return errors.New("OOPS") },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return errors.New("OOPS") },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{
 				present: nil,
 				cleanUp: nil,
@@ -66,10 +65,8 @@ func TestChallenge_PreSolve(t *testing.T) {
 		},
 		{
 			desc:     "preCheck fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) {
-				return false, errors.New("OOPS")
-			},
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return false, errors.New("OOPS") },
 			provider: &providerTimeoutMock{
 				timeout:  2 * time.Second,
 				interval: 500 * time.Millisecond,
@@ -77,8 +74,8 @@ func TestChallenge_PreSolve(t *testing.T) {
 		},
 		{
 			desc:     "present fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{
 				present: errors.New("OOPS"),
 			},
@@ -86,8 +83,8 @@ func TestChallenge_PreSolve(t *testing.T) {
 		},
 		{
 			desc:     "cleanUp fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{
 				cleanUp: errors.New("OOPS"),
 			},
@@ -107,7 +104,7 @@ func TestChallenge_PreSolve(t *testing.T) {
 				},
 			}
 
-			err = chlg.PreSolve(t.Context(), authz)
+			err = chlg.PreSolve(authz)
 			if test.expectError {
 				require.Error(t, err)
 			} else {
@@ -118,7 +115,7 @@ func TestChallenge_PreSolve(t *testing.T) {
 }
 
 func TestChallenge_Solve(t *testing.T) {
-	mockDefault(t, dnsmock.NewServer().
+	useAsNameserver(t, dnsmock.NewServer().
 		Query("_acme-challenge.example.com. CNAME", dnsmock.Noop).
 		Build(t))
 
@@ -139,14 +136,14 @@ func TestChallenge_Solve(t *testing.T) {
 	}{
 		{
 			desc:     "success",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{},
 		},
 		{
 			desc:     "validate fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return errors.New("OOPS") },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return errors.New("OOPS") },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{
 				present: nil,
 				cleanUp: nil,
@@ -155,10 +152,8 @@ func TestChallenge_Solve(t *testing.T) {
 		},
 		{
 			desc:     "preCheck fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) {
-				return false, errors.New("OOPS")
-			},
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return false, errors.New("OOPS") },
 			provider: &providerTimeoutMock{
 				timeout:  2 * time.Second,
 				interval: 500 * time.Millisecond,
@@ -167,16 +162,16 @@ func TestChallenge_Solve(t *testing.T) {
 		},
 		{
 			desc:     "present fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{
 				present: errors.New("OOPS"),
 			},
 		},
 		{
 			desc:     "cleanUp fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{
 				cleanUp: errors.New("OOPS"),
 			},
@@ -201,7 +196,7 @@ func TestChallenge_Solve(t *testing.T) {
 				},
 			}
 
-			err = chlg.Solve(t.Context(), authz)
+			err = chlg.Solve(authz)
 			if test.expectError {
 				require.Error(t, err)
 			} else {
@@ -229,14 +224,14 @@ func TestChallenge_CleanUp(t *testing.T) {
 	}{
 		{
 			desc:     "success",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{},
 		},
 		{
 			desc:     "validate fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return errors.New("OOPS") },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return errors.New("OOPS") },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{
 				present: nil,
 				cleanUp: nil,
@@ -244,10 +239,8 @@ func TestChallenge_CleanUp(t *testing.T) {
 		},
 		{
 			desc:     "preCheck fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) {
-				return false, errors.New("OOPS")
-			},
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return false, errors.New("OOPS") },
 			provider: &providerTimeoutMock{
 				timeout:  2 * time.Second,
 				interval: 500 * time.Millisecond,
@@ -255,16 +248,16 @@ func TestChallenge_CleanUp(t *testing.T) {
 		},
 		{
 			desc:     "present fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{
 				present: errors.New("OOPS"),
 			},
 		},
 		{
 			desc:     "cleanUp fail",
-			validate: func(_ context.Context, _ *api.Core, _ string, _ acme.Challenge) error { return nil },
-			preCheck: func(_ context.Context, _, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
+			validate: func(_ *api.Core, _ string, _ acme.Challenge) error { return nil },
+			preCheck: func(_, _, _ string, _ PreCheckFunc) (bool, error) { return true, nil },
 			provider: &providerMock{
 				cleanUp: errors.New("OOPS"),
 			},
@@ -285,7 +278,7 @@ func TestChallenge_CleanUp(t *testing.T) {
 				},
 			}
 
-			err = chlg.CleanUp(t.Context(), authz)
+			err = chlg.CleanUp(authz)
 			if test.expectError {
 				require.Error(t, err)
 			} else {
@@ -296,87 +289,53 @@ func TestChallenge_CleanUp(t *testing.T) {
 }
 
 func TestGetChallengeInfo(t *testing.T) {
-	mockDefault(t, dnsmock.NewServer().
+	useAsNameserver(t, dnsmock.NewServer().
 		Query("_acme-challenge.example.com. CNAME", dnsmock.Noop).
 		Build(t))
 
-	info := GetChallengeInfo(t.Context(), "example.com", "123")
+	info := GetChallengeInfo("example.com", "123")
 
 	expected := ChallengeInfo{
 		FQDN:          "_acme-challenge.example.com.",
 		EffectiveFQDN: "_acme-challenge.example.com.",
 		Value:         "pmWkWSBCL51Bfkhn79xPuKBKHz__H6B-mY6G9_eieuM",
-		Prefix:        "_acme-challenge",
 	}
 
 	assert.Equal(t, expected, info)
 }
 
-func TestGetChallengeInfo_cname(t *testing.T) {
-	mockDefault(t, dnsmock.NewServer().
+func TestGetChallengeInfo_CNAME(t *testing.T) {
+	useAsNameserver(t, dnsmock.NewServer().
 		Query("_acme-challenge.example.com. CNAME", dnsmock.CNAME("example.org.")).
 		Query("example.org. CNAME", dnsmock.Noop).
 		Build(t))
 
-	info := GetChallengeInfo(t.Context(), "example.com", "123")
+	info := GetChallengeInfo("example.com", "123")
 
 	expected := ChallengeInfo{
 		FQDN:          "_acme-challenge.example.com.",
 		EffectiveFQDN: "example.org.",
 		Value:         "pmWkWSBCL51Bfkhn79xPuKBKHz__H6B-mY6G9_eieuM",
-		Prefix:        "_acme-challenge",
 	}
 
 	assert.Equal(t, expected, info)
 }
 
-func TestGetChallengeInfo_cname_disabled(t *testing.T) {
-	mockDefault(t, dnsmock.NewServer().
+func TestGetChallengeInfo_CNAME_disabled(t *testing.T) {
+	useAsNameserver(t, dnsmock.NewServer().
 		// Never called when the env var works.
 		Query("_acme-challenge.example.com. CNAME", dnsmock.CNAME("example.org.")).
 		Build(t))
 
 	t.Setenv("LEGO_DISABLE_CNAME_SUPPORT", "true")
 
-	info := GetChallengeInfo(t.Context(), "example.com", "123")
+	info := GetChallengeInfo("example.com", "123")
 
 	expected := ChallengeInfo{
 		FQDN:          "_acme-challenge.example.com.",
 		EffectiveFQDN: "_acme-challenge.example.com.",
 		Value:         "pmWkWSBCL51Bfkhn79xPuKBKHz__H6B-mY6G9_eieuM",
-		Prefix:        "_acme-challenge",
 	}
 
 	assert.Equal(t, expected, info)
-}
-
-func TestGetChallengeInfo_Domain(t *testing.T) {
-	mockDefault(t, dnsmock.NewServer().
-		Query("_acme-challenge.example.com. CNAME", dnsmock.Noop).
-		Build(t))
-
-	info := GetChallengeInfo(t.Context(), "example.com", "123")
-
-	assert.Equal(t, "example.com.", info.Domain())
-}
-
-func TestGetChallengeInfo_EffectiveDomain(t *testing.T) {
-	mockDefault(t, dnsmock.NewServer().
-		Query("_acme-challenge.example.com. CNAME", dnsmock.Noop).
-		Build(t))
-
-	info := GetChallengeInfo(t.Context(), "example.com", "123")
-
-	assert.Equal(t, "example.com.", info.EffectiveDomain())
-}
-
-func TestGetChallengeInfo_EffectiveDomain_cname(t *testing.T) {
-	mockDefault(t, dnsmock.NewServer().
-		Query("_acme-challenge.example.com. CNAME", dnsmock.CNAME("_acme-challenge.example.org.")).
-		Query("_acme-challenge.example.org. CNAME", dnsmock.Noop).
-		Build(t))
-
-	info := GetChallengeInfo(t.Context(), "example.com", "123")
-
-	assert.Equal(t, "_acme-challenge.example.org.", info.EffectiveDomain())
 }

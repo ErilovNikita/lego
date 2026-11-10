@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/internal/ptr"
-	"github.com/go-acme/lego/v5/platform/env"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/internal/ptr"
 	"github.com/volcengine/volc-sdk-golang/base"
 	volc "github.com/volcengine/volc-sdk-golang/service/dns"
 )
@@ -116,8 +116,10 @@ func (d *DNSProvider) Timeout() (timeout, interval time.Duration) {
 }
 
 // Present creates a TXT record to fulfill the dns-01 challenge.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	ctx := context.Background()
+
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
 	zone, err := d.getZone(ctx, info.EffectiveFQDN)
 	if err != nil {
@@ -150,8 +152,8 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
 	// gets the record's unique ID
 	d.recordIDsMu.Lock()
@@ -164,7 +166,7 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 
 	drr := &volc.DeleteRecordRequest{RecordID: recordID}
 
-	err := d.client.DeleteRecord(ctx, drr)
+	err := d.client.DeleteRecord(context.Background(), drr)
 	if err != nil {
 		return fmt.Errorf("volcengine: delete record: %w", err)
 	}
@@ -179,7 +181,7 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 func (d *DNSProvider) getZone(ctx context.Context, fqdn string) (volc.TopZoneResponse, error) {
 	for domain := range dns01.UnFqdnDomainsSeq(fqdn) {
 		lzr := &volc.ListZonesRequest{
-			Key:        ptr.Pointer(domain),
+			Key:        ptr.Pointer(dns01.UnFqdn(domain)),
 			SearchMode: ptr.Pointer("exact"),
 		}
 

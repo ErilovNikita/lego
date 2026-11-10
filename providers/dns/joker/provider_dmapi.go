@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/platform/env"
-	"github.com/go-acme/lego/v5/providers/dns/internal/clientdebug"
-	"github.com/go-acme/lego/v5/providers/dns/joker/internal/dmapi"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/log"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/internal/clientdebug"
+	"github.com/go-acme/lego/v4/providers/dns/joker/internal/dmapi"
 )
 
 var _ challenge.ProviderTimeout = (*dmapiProvider)(nil)
@@ -61,6 +62,8 @@ func newDmapiProviderConfig(config *Config) (*dmapiProvider, error) {
 		Password: config.Password,
 	})
 
+	client.Debug = config.Debug
+
 	if config.HTTPClient != nil {
 		client.HTTPClient = config.HTTPClient
 	}
@@ -77,10 +80,10 @@ func (d *dmapiProvider) Timeout() (timeout, interval time.Duration) {
 }
 
 // Present creates a TXT record using the specified parameters.
-func (d *dmapiProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *dmapiProvider) Present(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	zone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, info.EffectiveFQDN)
+	zone, err := dns01.FindZoneByFqdn(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("joker: could not find zone for domain %q: %w", domain, err)
 	}
@@ -90,19 +93,23 @@ func (d *dmapiProvider) Present(ctx context.Context, domain, token, keyAuth stri
 		return fmt.Errorf("joker: %w", err)
 	}
 
-	ctxAuth, err := d.client.CreateAuthenticatedContext(ctx)
-	if err != nil {
-		return fmt.Errorf("joker: create authenticated context: %w", err)
+	if d.config.Debug {
+		log.Infof("[%s] joker: adding TXT record %q to zone %q with value %q", domain, subDomain, zone, info.Value)
 	}
 
-	response, err := d.client.GetZone(ctxAuth, zone)
+	ctx, err := d.client.CreateAuthenticatedContext(context.Background())
+	if err != nil {
+		return err
+	}
+
+	response, err := d.client.GetZone(ctx, zone)
 	if err != nil || response.StatusCode != 0 {
 		return formatResponseError(response, err)
 	}
 
 	dnsZone := dmapi.AddTxtEntryToZone(response.Body, subDomain, info.Value, d.config.TTL)
 
-	response, err = d.client.PutZone(ctxAuth, zone, dnsZone)
+	response, err = d.client.PutZone(ctx, zone, dnsZone)
 	if err != nil || response.StatusCode != 0 {
 		return formatResponseError(response, err)
 	}
@@ -111,10 +118,10 @@ func (d *dmapiProvider) Present(ctx context.Context, domain, token, keyAuth stri
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *dmapiProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *dmapiProvider) CleanUp(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	zone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, info.EffectiveFQDN)
+	zone, err := dns01.FindZoneByFqdn(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("joker: could not find zone for domain %q: %w", domain, err)
 	}
@@ -124,30 +131,34 @@ func (d *dmapiProvider) CleanUp(ctx context.Context, domain, token, keyAuth stri
 		return fmt.Errorf("joker: %w", err)
 	}
 
-	ctxAuth, err := d.client.CreateAuthenticatedContext(ctx)
+	if d.config.Debug {
+		log.Infof("[%s] joker: removing entry %q from zone %q", domain, subDomain, zone)
+	}
+
+	ctx, err := d.client.CreateAuthenticatedContext(context.Background())
 	if err != nil {
-		return fmt.Errorf("joker: create authenticated context: %w", err)
+		return err
 	}
 
 	defer func() {
 		// Try to log out in case of errors
-		_, _ = d.client.Logout(ctxAuth)
+		_, _ = d.client.Logout(ctx)
 	}()
 
-	response, err := d.client.GetZone(ctxAuth, zone)
+	response, err := d.client.GetZone(ctx, zone)
 	if err != nil || response.StatusCode != 0 {
 		return formatResponseError(response, err)
 	}
 
 	dnsZone, modified := dmapi.RemoveTxtEntryFromZone(response.Body, subDomain)
 	if modified {
-		response, err = d.client.PutZone(ctxAuth, zone, dnsZone)
+		response, err = d.client.PutZone(ctx, zone, dnsZone)
 		if err != nil || response.StatusCode != 0 {
 			return formatResponseError(response, err)
 		}
 	}
 
-	response, err = d.client.Logout(ctxAuth)
+	response, err = d.client.Logout(ctx)
 	if err != nil {
 		return formatResponseError(response, err)
 	}

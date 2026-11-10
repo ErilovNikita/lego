@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/internal/tester"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/platform/tester"
 	"github.com/stretchr/testify/require"
 )
 
@@ -163,11 +163,9 @@ func TestLivePresentAndCleanup(t *testing.T) {
 	p, err := NewDNSProvider()
 	require.NoError(t, err)
 
-	ctx := t.Context()
+	info := dns01.GetChallengeInfo(envTest.GetDomain(), "123d==")
 
-	info := dns01.GetChallengeInfo(ctx, envTest.GetDomain(), "123d==")
-
-	zone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, info.EffectiveFQDN)
+	zone, err := dns01.FindZoneByFqdn(info.EffectiveFQDN)
 	require.NoError(t, err)
 
 	zone = dns01.UnFqdn(zone)
@@ -181,10 +179,10 @@ func TestLivePresentAndCleanup(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(fmt.Sprintf("domain(%s)", test), func(t *testing.T) {
-			err = p.Present(t.Context(), test, "987d", "123d==")
+			err = p.Present(test, "987d", "123d==")
 			require.NoError(t, err)
 
-			err = p.CleanUp(t.Context(), test, "987d", "123d==")
+			err = p.CleanUp(test, "987d", "123d==")
 			require.NoError(t, err)
 		})
 	}

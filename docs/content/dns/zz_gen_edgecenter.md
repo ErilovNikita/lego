@@ -27,7 +27,7 @@ Here is an example bash command using the EdgeCenter provider:
 
 ```bash
 EDGECENTER_PERMANENT_API_TOKEN=xxxxx \
-lego run --dns edgecenter -d '*.example.com' -d example.com
+lego --dns edgecenter -d '*.example.com' -d example.com run
 ```
 
 

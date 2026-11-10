@@ -1,12 +1,9 @@
 package mijnhost
 
 import (
-	"net/http/httptest"
-	"net/url"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/tester"
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester"
 	"github.com/stretchr/testify/require"
 )
 
@@ -102,7 +99,7 @@ func TestLivePresent(t *testing.T) {
 	provider, err := NewDNSProvider()
 	require.NoError(t, err)
 
-	err = provider.Present(t.Context(), envTest.GetDomain(), "", "123d==")
+	err = provider.Present(envTest.GetDomain(), "", "123d==")
 	require.NoError(t, err)
 }
 
@@ -116,58 +113,6 @@ func TestLiveCleanUp(t *testing.T) {
 	provider, err := NewDNSProvider()
 	require.NoError(t, err)
 
-	err = provider.CleanUp(t.Context(), envTest.GetDomain(), "", "123d==")
-	require.NoError(t, err)
-}
-
-func mockBuilder() *servermock.Builder[*DNSProvider] {
-	return servermock.NewBuilder(
-		func(server *httptest.Server) (*DNSProvider, error) {
-			config := NewDefaultConfig()
-			config.APIKey = "secret"
-			config.HTTPClient = server.Client()
-
-			p, err := NewDNSProviderConfig(config)
-			if err != nil {
-				return nil, err
-			}
-
-			p.client.BaseURL, _ = url.Parse(server.URL)
-
-			return p, nil
-		},
-		servermock.CheckHeader().
-			WithAccept("application/json").
-			With("Api-Key", "secret"),
-	)
-}
-
-func TestDNSProvider_Present(t *testing.T) {
-	provider := mockBuilder().
-		Route("GET /domains",
-			servermock.ResponseFromInternal("list_domains.json"),
-		).
-		Route("PATCH /domains/example.com/dns",
-			servermock.ResponseFromInternal("update_dns_record.json"),
-			servermock.CheckRequestJSONBodyFromInternal("update_dns_record-request.json"),
-		).
-		Build(t)
-
-	err := provider.Present(t.Context(), "example.com", "", "123d==")
-	require.NoError(t, err)
-}
-
-func TestDNSProvider_CleanUp(t *testing.T) {
-	provider := mockBuilder().
-		Route("GET /domains",
-			servermock.ResponseFromInternal("list_domains.json"),
-		).
-		Route("DELETE /domains/example.com/dns",
-			servermock.ResponseFromInternal("delete_dns_record.json"),
-			servermock.CheckRequestJSONBodyFromInternal("delete_dns_record-request.json"),
-		).
-		Build(t)
-
-	err := provider.CleanUp(t.Context(), "example.com", "token", "123d==")
+	err = provider.CleanUp(envTest.GetDomain(), "", "123d==")
 	require.NoError(t, err)
 }

@@ -1,11 +1,11 @@
 {
   "dns_record": {
-    "id": 123,
     "type": "TXT",
-    "fqdn": "example.com",
+    "id": 123,
     "data": {
-      "value": "ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY",
-      "sub": "_acme-challenge"
+      "priority": 0,
+      "subdomain": "example.com",
+      "value": "w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI"
     }
   },
   "response_id": "15095f25-aac3-4d60-a788-96cb5136f186"

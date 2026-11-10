@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/go-acme/lego/v5/internal/errutils"
+	"github.com/go-acme/lego/v4/providers/dns/internal/errutils"
 )
 
 const defaultBaseURL = "https://api.gcore.com/dns"
@@ -23,7 +23,7 @@ const (
 
 const txtRecordType = "TXT"
 
-// Client for Gcore API.
+// Client for DNS API.
 type Client struct {
 	token string
 
@@ -31,7 +31,7 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
-// NewClient creates a new Client.
+// NewClient constructor of Client.
 func NewClient(token string) *Client {
 	baseURL, _ := url.Parse(defaultBaseURL)
 
@@ -43,7 +43,7 @@ func NewClient(token string) *Client {
 }
 
 // GetZone gets zone information.
-// https://gcore.com/docs/api-reference/dns/zones/list-of-zones
+// https://api.gcore.com/docs/dns#tag/zones/operation/Zone
 func (c *Client) GetZone(ctx context.Context, name string) (Zone, error) {
 	endpoint := c.BaseURL.JoinPath("v2", "zones", name)
 
@@ -58,7 +58,7 @@ func (c *Client) GetZone(ctx context.Context, name string) (Zone, error) {
 }
 
 // GetRRSet gets RRSet item.
-// https://gcore.com/docs/api-reference/dns/rrsets/get-rrset
+// https://api.gcore.com/docs/dns#tag/rrsets/operation/RRSet
 func (c *Client) GetRRSet(ctx context.Context, zone, name string) (RRSet, error) {
 	endpoint := c.BaseURL.JoinPath("v2", "zones", zone, name, txtRecordType)
 
@@ -73,7 +73,7 @@ func (c *Client) GetRRSet(ctx context.Context, zone, name string) (RRSet, error)
 }
 
 // DeleteRRSet removes RRSet record.
-// https://gcore.com/docs/api-reference/dns/rrsets/delete-rrset
+// https://api.gcore.com/docs/dns#tag/rrsets/operation/DeleteRRSet
 func (c *Client) DeleteRRSet(ctx context.Context, zone, name string) error {
 	endpoint := c.BaseURL.JoinPath("v2", "zones", zone, name, txtRecordType)
 
@@ -104,14 +104,14 @@ func (c *Client) AddRRSet(ctx context.Context, zone, recordName, value string, t
 	return c.createRRSet(ctx, zone, recordName, record)
 }
 
-// https://gcore.com/docs/api-reference/dns/rrsets/create-rrset
+// https://api.gcore.com/docs/dns#tag/rrsets/operation/CreateRRSet
 func (c *Client) createRRSet(ctx context.Context, zone, name string, record RRSet) error {
 	endpoint := c.BaseURL.JoinPath("v2", "zones", zone, name, txtRecordType)
 
 	return c.doRequest(ctx, http.MethodPost, endpoint, record, nil)
 }
 
-// https://gcore.com/docs/api-reference/dns/rrsets/update-rrset
+// https://api.gcore.com/docs/dns#tag/rrsets/operation/UpdateRRSet
 func (c *Client) updateRRSet(ctx context.Context, zone, name string, record RRSet) error {
 	endpoint := c.BaseURL.JoinPath("v2", "zones", zone, name, txtRecordType)
 

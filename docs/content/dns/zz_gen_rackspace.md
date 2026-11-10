@@ -28,7 +28,7 @@ Here is an example bash command using the Rackspace provider:
 ```bash
 RACKSPACE_USER=xxxx \
 RACKSPACE_API_KEY=yyyy \
-lego run --dns rackspace -d '*.example.com' -d example.com
+lego --dns rackspace -d '*.example.com' -d example.com run
 ```
 
 

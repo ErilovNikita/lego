@@ -12,9 +12,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/internal/ptr"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/providers/dns/internal/ptr"
 )
 
 var _ challenge.ProviderTimeout = (*DNSProviderPrivate)(nil)
@@ -47,10 +47,11 @@ func (d *DNSProviderPrivate) Timeout() (timeout, interval time.Duration) {
 }
 
 // Present creates a TXT record to fulfill the dns-01 challenge.
-func (d *DNSProviderPrivate) Present(ctx context.Context, domain, _, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProviderPrivate) Present(domain, _, keyAuth string) error {
+	ctx := context.Background()
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	zone, err := d.getHostedZone(ctx, info.EffectiveFQDN)
+	zone, err := d.getHostedZone(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("azuredns: %w", err)
 	}
@@ -99,10 +100,11 @@ func (d *DNSProviderPrivate) Present(ctx context.Context, domain, _, keyAuth str
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *DNSProviderPrivate) CleanUp(ctx context.Context, domain, _, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProviderPrivate) CleanUp(domain, _, keyAuth string) error {
+	ctx := context.Background()
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	zone, err := d.getHostedZone(ctx, info.EffectiveFQDN)
+	zone, err := d.getHostedZone(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("azuredns: %w", err)
 	}
@@ -126,8 +128,8 @@ func (d *DNSProviderPrivate) CleanUp(ctx context.Context, domain, _, keyAuth str
 }
 
 // Checks that azure has a zone for this domain name.
-func (d *DNSProviderPrivate) getHostedZone(ctx context.Context, fqdn string) (ServiceDiscoveryZone, error) {
-	authZone, err := getZoneName(ctx, d.config, fqdn)
+func (d *DNSProviderPrivate) getHostedZone(fqdn string) (ServiceDiscoveryZone, error) {
+	authZone, err := getZoneName(d.config, fqdn)
 	if err != nil {
 		return ServiceDiscoveryZone{}, err
 	}

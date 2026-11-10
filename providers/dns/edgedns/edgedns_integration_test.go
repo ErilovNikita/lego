@@ -1,13 +1,14 @@
 package edgedns
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	edgegriddns "github.com/akamai/AkamaiOPEN-edgegrid-golang/v13/pkg/dns"
 	"github.com/akamai/AkamaiOPEN-edgegrid-golang/v13/pkg/session"
-	"github.com/go-acme/lego/v5/challenge/dns01"
+	"github.com/go-acme/lego/v4/challenge/dns01"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,11 +23,11 @@ func TestLivePresent(t *testing.T) {
 	provider, err := NewDNSProvider()
 	require.NoError(t, err)
 
-	err = provider.Present(t.Context(), envTest.GetDomain(), "", "123d==")
+	err = provider.Present(envTest.GetDomain(), "", "123d==")
 	require.NoError(t, err)
 
 	// Present Twice to handle create / update
-	err = provider.Present(t.Context(), envTest.GetDomain(), "", "123d==")
+	err = provider.Present(envTest.GetDomain(), "", "123d==")
 	require.NoError(t, err)
 }
 
@@ -42,7 +43,7 @@ func TestLiveCleanUp(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	err = provider.CleanUp(t.Context(), envTest.GetDomain(), "", "123d==")
+	err = provider.CleanUp(envTest.GetDomain(), "", "123d==")
 	require.NoError(t, err)
 }
 
@@ -58,21 +59,21 @@ func TestLiveTTL(t *testing.T) {
 
 	domain := envTest.GetDomain()
 
-	ctx := t.Context()
-
-	err = provider.Present(ctx, domain, "foo", "bar")
+	err = provider.Present(domain, "foo", "bar")
 	require.NoError(t, err)
 
 	defer func() {
-		e := provider.CleanUp(ctx, domain, "foo", "bar")
+		e := provider.CleanUp(domain, "foo", "bar")
 		if e != nil {
 			t.Log(e)
 		}
 	}()
 
 	fqdn := "_acme-challenge." + domain + "."
-	zone, err := getZone(ctx, fqdn)
+	zone, err := getZone(fqdn)
 	require.NoError(t, err)
+
+	ctx := context.Background()
 
 	sess, err := session.New(session.WithSigner(provider.config))
 	require.NoError(t, err)

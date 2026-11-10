@@ -1,17 +1,14 @@
 package challenge
 
-import (
-	"context"
-	"time"
-)
+import "time"
 
 // Provider enables implementing a custom challenge
 // provider. Present presents the solution to a challenge available to
 // be solved. CleanUp will be called by the challenge if Present ends
 // in a non-error state.
 type Provider interface {
-	Present(ctx context.Context, domain, token, keyAuth string) error
-	CleanUp(ctx context.Context, domain, token, keyAuth string) error
+	Present(domain, token, keyAuth string) error
+	CleanUp(domain, token, keyAuth string) error
 }
 
 // ProviderTimeout allows for implementing a
@@ -27,12 +24,5 @@ type Provider interface {
 // defined for the Provider.
 type ProviderTimeout interface {
 	Provider
-	Timeout() (timeout, interval time.Duration)
-}
-
-// PersistentProvider enables implementing a custom challenge provider of DNS-PERSISTENT-01.
-// IMPORTANT: this interface is experimental and may change without notice.
-type PersistentProvider interface {
-	Persist(ctx context.Context, fqdn, value string) error
 	Timeout() (timeout, interval time.Duration)
 }

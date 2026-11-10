@@ -2,7 +2,6 @@
 package liquidweb
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -11,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/platform/env"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/platform/config/env"
 	lw "github.com/liquidweb/liquidweb-go/client"
 	"github.com/liquidweb/liquidweb-go/network"
 )
@@ -118,8 +117,8 @@ func (d *DNSProvider) Timeout() (time.Duration, time.Duration) {
 }
 
 // Present creates a TXT record using the specified parameters.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
 	params := &network.DNSRecordParams{
 		Name:  dns01.UnFqdn(info.EffectiveFQDN),
@@ -151,7 +150,7 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
 	d.recordIDsMu.Lock()
 	recordID, ok := d.recordIDs[token]
 	d.recordIDsMu.Unlock()

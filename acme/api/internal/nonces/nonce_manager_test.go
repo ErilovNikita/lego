@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-acme/lego/v5/acme"
-	"github.com/go-acme/lego/v5/acme/api/internal/sender"
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/acme"
+	"github.com/go-acme/lego/v4/acme/api/internal/sender"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 )
 
-func mockBuilder() *servermock.Builder[*Manager] {
-	return servermock.NewBuilder(
+func TestNotHoldingLockWhileMakingHTTPRequests(t *testing.T) {
+	manager := servermock.NewBuilder(
 		func(server *httptest.Server) (*Manager, error) {
 			doer := sender.NewDoer(server.Client(), "lego-test")
 
@@ -25,19 +25,14 @@ func mockBuilder() *servermock.Builder[*Manager] {
 			rw.Header().Set("Retry-After", "0")
 
 			servermock.JSONEncode(&acme.Challenge{Type: "http-01", Status: "Valid", URL: "https://example.com/", Token: "token"}).ServeHTTP(rw, req)
-		}))
-}
-
-func TestManager_getNonce_notHoldingLockWhileMakingHTTPRequests(t *testing.T) {
-	manager := mockBuilder().BuildHTTPS(t)
-
-	ctx := t.Context()
+		})).
+		BuildHTTPS(t)
 
 	ch := make(chan bool)
 	resultCh := make(chan bool)
 
 	go func() {
-		_, errN := manager.getNonce(ctx)
+		_, errN := manager.Nonce()
 		if errN != nil {
 			t.Log(errN)
 		}
@@ -45,45 +40,7 @@ func TestManager_getNonce_notHoldingLockWhileMakingHTTPRequests(t *testing.T) {
 		ch <- true
 	}()
 	go func() {
-		_, errN := manager.getNonce(ctx)
-		if errN != nil {
-			t.Log(errN)
-		}
-
-		ch <- true
-	}()
-	go func() {
-		<-ch
-		<-ch
-
-		resultCh <- true
-	}()
-
-	select {
-	case <-resultCh:
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("JWS is probably holding a lock while making HTTP request")
-	}
-}
-
-func TestNewNonceSource_notHoldingLockWhileMakingHTTPRequests(t *testing.T) {
-	manager := mockBuilder().BuildHTTPS(t)
-
-	ctx := t.Context()
-
-	ch := make(chan bool)
-	resultCh := make(chan bool)
-
-	go func() {
-		_, errN := NewNonceSource(ctx, manager).Nonce()
-		if errN != nil {
-			t.Log(errN)
-		}
-
-		ch <- true
-	}()
-	go func() {
-		_, errN := NewNonceSource(ctx, manager).Nonce()
+		_, errN := manager.Nonce()
 		if errN != nil {
 			t.Log(errN)
 		}

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-acme/lego/v5/acme"
-	"github.com/go-acme/lego/v5/challenge"
+	"github.com/go-acme/lego/v4/acme"
+	"github.com/go-acme/lego/v4/challenge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,7 +96,9 @@ func TestProber_Solve(t *testing.T) {
 				createStubAuthorizationHTTP01("example.org", acme.StatusProcessing),
 				createStubAuthorizationHTTP01("example.net", acme.StatusProcessing),
 			},
-			expectedError: `resolver: one or more domains had a problem: [example.com: preSolve error example.com]`,
+			expectedError: `error: one or more domains had a problem:
+[example.com] preSolve error example.com
+`,
 			expectedCounters: map[challenge.Type]string{
 				challenge.HTTP01: "PreSolve: 3, Solve: 2, CleanUp: 3",
 			},
@@ -122,7 +124,10 @@ func TestProber_Solve(t *testing.T) {
 				createStubAuthorizationHTTP01("example.org", acme.StatusProcessing),
 				createStubAuthorizationHTTP01("example.net", acme.StatusProcessing),
 			},
-			expectedError: `resolver: one or more domains had a problem: [example.com: preSolve error example.com] [example.org: solve error example.org]`,
+			expectedError: `error: one or more domains had a problem:
+[example.com] preSolve error example.com
+[example.org] solve error example.org
+`,
 			expectedCounters: map[challenge.Type]string{
 				challenge.HTTP01: "PreSolve: 3, Solve: 2, CleanUp: 3",
 			},
@@ -137,7 +142,7 @@ func TestProber_Solve(t *testing.T) {
 				solverManager: &SolverManager{solvers: test.solvers},
 			}
 
-			err := prober.Solve(t.Context(), test.authz)
+			err := prober.Solve(test.authz)
 			if test.expectedError != "" {
 				require.EqualError(t, err, test.expectedError)
 			} else {

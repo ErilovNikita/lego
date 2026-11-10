@@ -1,49 +1,59 @@
 package log
 
 import (
-	"context"
-	"log/slog"
+	"log"
 	"os"
-	"sync/atomic"
 )
 
-var defaultLogger atomic.Pointer[slog.Logger]
+// Logger is an optional custom logger.
+var Logger StdLogger = log.New(os.Stderr, "", log.LstdFlags)
 
-func init() {
-	defaultLogger.Store(slog.New(slog.NewTextHandler(os.Stdout, nil)))
+// StdLogger interface for Standard Logger.
+type StdLogger interface {
+	Fatal(args ...any)
+	Fatalln(args ...any)
+	Fatalf(format string, args ...any)
+	Print(args ...any)
+	Println(args ...any)
+	Printf(format string, args ...any)
 }
 
-// Default returns the default [Logger].
-func Default() *slog.Logger { return defaultLogger.Load() }
-
-// SetDefault makes l the default [Logger], which is used by
-// the top-level functions [Info], [Debug] and so on.
-func SetDefault(l *slog.Logger) {
-	defaultLogger.Store(l)
+// Fatal writes a log entry.
+// It uses Logger if not nil, otherwise it uses the default log.Logger.
+func Fatal(args ...any) {
+	Logger.Fatal(args...)
 }
 
-// Fatal calls [Logger.Error] on the default logger and exit with code 1.
-func Fatal(msg string, args ...slog.Attr) {
-	Error(msg, args...)
-	os.Exit(1)
+// Fatalf writes a log entry.
+// It uses Logger if not nil, otherwise it uses the default log.Logger.
+func Fatalf(format string, args ...any) {
+	Logger.Fatalf(format, args...)
 }
 
-// Debug calls [Logger.Debug] on the default logger.
-func Debug(msg string, args ...slog.Attr) {
-	Default().LogAttrs(context.Background(), slog.LevelDebug, msg, args...)
+// Print writes a log entry.
+// It uses Logger if not nil, otherwise it uses the default log.Logger.
+func Print(args ...any) {
+	Logger.Print(args...)
 }
 
-// Info calls [Logger.Info] on the default logger.
-func Info(msg string, args ...slog.Attr) {
-	Default().LogAttrs(context.Background(), slog.LevelInfo, msg, args...)
+// Println writes a log entry.
+// It uses Logger if not nil, otherwise it uses the default log.Logger.
+func Println(args ...any) {
+	Logger.Println(args...)
 }
 
-// Warn calls [Logger.Warn] on the default logger.
-func Warn(msg string, args ...slog.Attr) {
-	Default().LogAttrs(context.Background(), slog.LevelWarn, msg, args...)
+// Printf writes a log entry.
+// It uses Logger if not nil, otherwise it uses the default log.Logger.
+func Printf(format string, args ...any) {
+	Logger.Printf(format, args...)
 }
 
-// Error calls [Logger.Error] on the default logger.
-func Error(msg string, args ...slog.Attr) {
-	Default().LogAttrs(context.Background(), slog.LevelError, msg, args...)
+// Warnf writes a log entry.
+func Warnf(format string, args ...any) {
+	Printf("[WARN] "+format, args...)
+}
+
+// Infof writes a log entry.
+func Infof(format string, args ...any) {
+	Printf("[INFO] "+format, args...)
 }

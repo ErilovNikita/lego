@@ -6,7 +6,7 @@ Since = "v4.2.0"
 
 Example = '''
 IONOS_API_KEY=xxxxxxxx \
-lego run --dns ionos -d '*.example.com' -d example.com
+lego --dns ionos -d '*.example.com' -d example.com run
 '''
 
 [Configuration]

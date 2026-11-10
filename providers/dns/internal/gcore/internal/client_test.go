@@ -6,15 +6,15 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	testToken         = "secret"
-	testRecordContent = "ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY"
-	testTTL           = 120
+	testToken         = "test"
+	testRecordContent = "acme"
+	testTTL           = 10
 )
 
 func mockBuilder() *servermock.Builder[*Client] {
@@ -26,23 +26,19 @@ func mockBuilder() *servermock.Builder[*Client] {
 
 			return client, nil
 		},
-		servermock.CheckHeader().
-			WithJSONHeaders().
-			WithAuthorization("APIKey secret"),
-	)
+		servermock.CheckHeader().WithJSONHeaders())
 }
 
 func TestClient_GetZone(t *testing.T) {
+	expected := Zone{Name: "example.com"}
+
 	client := mockBuilder().
 		Route("GET /v2/zones/example.com",
-			servermock.ResponseFromFixture("get_zones.json"),
-		).
+			servermock.JSONEncode(expected)).
 		Build(t)
 
 	zone, err := client.GetZone(t.Context(), "example.com")
 	require.NoError(t, err)
-
-	expected := Zone{Name: "example.com"}
 
 	assert.Equal(t, expected, zone)
 }
@@ -50,9 +46,7 @@ func TestClient_GetZone(t *testing.T) {
 func TestClient_GetZone_error(t *testing.T) {
 	client := mockBuilder().
 		Route("GET /v2/zones/example.com",
-			servermock.JSONEncode(APIError{Message: "oops"}).
-				WithStatusCode(http.StatusInternalServerError),
-		).
+			servermock.JSONEncode(APIError{Message: "oops"}).WithStatusCode(http.StatusInternalServerError)).
 		Build(t)
 
 	_, err := client.GetZone(t.Context(), "example.com")
@@ -60,21 +54,20 @@ func TestClient_GetZone_error(t *testing.T) {
 }
 
 func TestClient_GetRRSet(t *testing.T) {
+	expected := RRSet{
+		TTL: testTTL,
+		Records: []Records{
+			{Content: []string{testRecordContent}},
+		},
+	}
+
 	client := mockBuilder().
 		Route("GET /v2/zones/example.com/foo.example.com/TXT",
-			servermock.ResponseFromFixture("get_rrset.json"),
-		).
+			servermock.JSONEncode(expected)).
 		Build(t)
 
 	rrSet, err := client.GetRRSet(t.Context(), "example.com", "foo.example.com")
 	require.NoError(t, err)
-
-	expected := RRSet{
-		TTL: 10,
-		Records: []Records{
-			{Content: []string{"foo"}},
-		},
-	}
 
 	assert.Equal(t, expected, rrSet)
 }
@@ -82,9 +75,7 @@ func TestClient_GetRRSet(t *testing.T) {
 func TestClient_GetRRSet_error(t *testing.T) {
 	client := mockBuilder().
 		Route("GET /v2/zones/example.com/foo.example.com/TXT",
-			servermock.JSONEncode(APIError{Message: "oops"}).
-				WithStatusCode(http.StatusInternalServerError),
-		).
+			servermock.JSONEncode(APIError{Message: "oops"}).WithStatusCode(http.StatusInternalServerError)).
 		Build(t)
 
 	_, err := client.GetRRSet(t.Context(), "example.com", "foo.example.com")
@@ -93,9 +84,7 @@ func TestClient_GetRRSet_error(t *testing.T) {
 
 func TestClient_DeleteRRSet(t *testing.T) {
 	client := mockBuilder().
-		Route("DELETE /v2/zones/test.example.com/my.test.example.com/TXT",
-			servermock.Noop(),
-		).
+		Route("DELETE /v2/zones/test.example.com/my.test.example.com/TXT", nil).
 		Build(t)
 
 	err := client.DeleteRRSet(t.Context(), "test.example.com", "my.test.example.com.")
@@ -105,9 +94,7 @@ func TestClient_DeleteRRSet(t *testing.T) {
 func TestClient_DeleteRRSet_error(t *testing.T) {
 	client := mockBuilder().
 		Route("DELETE /v2/zones/test.example.com/my.test.example.com/TXT",
-			servermock.JSONEncode(APIError{Message: "oops"}).
-				WithStatusCode(http.StatusInternalServerError),
-		).
+			servermock.JSONEncode(APIError{Message: "oops"}).WithStatusCode(http.StatusInternalServerError)).
 		Build(t)
 
 	err := client.DeleteRRSet(t.Context(), "test.example.com", "my.test.example.com.")
@@ -117,18 +104,15 @@ func TestClient_DeleteRRSet_error(t *testing.T) {
 func TestClient_AddRRSet_add(t *testing.T) {
 	client := mockBuilder().
 		// GetRRSet
-		Route("GET /v2/zones/example.com/_acme-challenge.example.com/TXT",
-			servermock.JSONEncode(APIError{Message: "not found"}).
-				WithStatusCode(http.StatusBadRequest),
-		).
+		Route("GET /v2/zones/test.example.com/my.test.example.com/TXT",
+			servermock.JSONEncode(APIError{Message: "not found"}).WithStatusCode(http.StatusBadRequest)).
 		// createRRSet
-		Route("POST /v2/zones/example.com/_acme-challenge.example.com/TXT",
-			servermock.ResponseFromFixture("create_rrset.json"),
-			servermock.CheckRequestJSONBodyFromFixture("create_rrset-request.json"),
-		).
+		Route("POST /v2/zones/test.example.com/my.test.example.com/TXT",
+			servermock.JSONEncode([]Records{{Content: []string{testRecordContent}}}),
+			servermock.CheckRequestJSONBody(`{"ttl":10,"resource_records":[{"content":["acme"]}]}`)).
 		Build(t)
 
-	err := client.AddRRSet(t.Context(), "example.com", "_acme-challenge.example.com", testRecordContent, testTTL)
+	err := client.AddRRSet(t.Context(), "test.example.com", "my.test.example.com", testRecordContent, testTTL)
 	require.NoError(t, err)
 }
 
@@ -136,14 +120,10 @@ func TestClient_AddRRSet_add_error(t *testing.T) {
 	client := mockBuilder().
 		// GetRRSet
 		Route("GET /v2/zones/test.example.com/my.test.example.com/TXT",
-			servermock.JSONEncode(APIError{Message: "not found"}).
-				WithStatusCode(http.StatusBadRequest),
-		).
+			servermock.JSONEncode(APIError{Message: "not found"}).WithStatusCode(http.StatusBadRequest)).
 		// createRRSet
 		Route("POST /v2/zones/test.example.com/my.test.example.com/TXT",
-			servermock.JSONEncode(APIError{Message: "oops"}).
-				WithStatusCode(http.StatusBadRequest),
-		).
+			servermock.JSONEncode(APIError{Message: "oops"}).WithStatusCode(http.StatusBadRequest)).
 		Build(t)
 
 	err := client.AddRRSet(t.Context(), "test.example.com", "my.test.example.com", testRecordContent, testTTL)
@@ -153,33 +133,33 @@ func TestClient_AddRRSet_add_error(t *testing.T) {
 func TestClient_AddRRSet_update(t *testing.T) {
 	client := mockBuilder().
 		// GetRRSet
-		Route("GET /v2/zones/example.com/_acme-challenge.example.com/TXT",
-			servermock.ResponseFromFixture("get_rrset.json"),
-		).
+		Route("GET /v2/zones/test.example.com/my.test.example.com/TXT",
+			servermock.JSONEncode(RRSet{
+				TTL:     testTTL,
+				Records: []Records{{Content: []string{"foo"}}},
+			})).
 		// updateRRSet
-		Route("PUT /v2/zones/example.com/_acme-challenge.example.com/TXT",
-			servermock.ResponseFromFixture("update_rrset.json"),
-			servermock.CheckRequestJSONBodyFromFixture("update_rrset-request.json"),
-		).
+		Route("PUT /v2/zones/test.example.com/my.test.example.com/TXT", nil,
+			servermock.CheckRequestJSONBody(`{"ttl":10,"resource_records":[{"content":["acme"]},{"content":["foo"]}]}`)).
 		Build(t)
 
-	err := client.AddRRSet(t.Context(), "example.com", "_acme-challenge.example.com", testRecordContent, testTTL)
+	err := client.AddRRSet(t.Context(), "test.example.com", "my.test.example.com", testRecordContent, testTTL)
 	require.NoError(t, err)
 }
 
 func TestClient_AddRRSet_update_error(t *testing.T) {
 	client := mockBuilder().
 		// GetRRSet
-		Route("GET /v2/zones/example.com/_acme-challenge.example.com/TXT",
-			servermock.ResponseFromFixture("get_rrset.json"),
-		).
+		Route("GET /v2/zones/test.example.com/my.test.example.com/TXT",
+			servermock.JSONEncode(RRSet{
+				TTL:     testTTL,
+				Records: []Records{{Content: []string{"foo"}}},
+			})).
 		// updateRRSet
-		Route("PUT /v2/zones/example.com/_acme-challenge.example.com/TXT",
-			servermock.JSONEncode(APIError{Message: "oops"}).
-				WithStatusCode(http.StatusBadRequest),
-		).
+		Route("PUT /v2/zones/test.example.com/my.test.example.com/TXT",
+			servermock.JSONEncode(APIError{Message: "oops"}).WithStatusCode(http.StatusBadRequest)).
 		Build(t)
 
-	err := client.AddRRSet(t.Context(), "example.com", "_acme-challenge.example.com", testRecordContent, testTTL)
+	err := client.AddRRSet(t.Context(), "test.example.com", "my.test.example.com", testRecordContent, testTTL)
 	require.EqualError(t, err, "400: oops")
 }

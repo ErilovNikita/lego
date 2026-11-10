@@ -2,16 +2,14 @@
 package inwx
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/log"
-	"github.com/go-acme/lego/v5/platform/env"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/log"
+	"github.com/go-acme/lego/v4/platform/config/env"
 	"github.com/nrdcg/goinwx"
 	"github.com/pquerna/otp/totp"
 )
@@ -89,7 +87,7 @@ func NewDNSProviderConfig(config *Config) (*DNSProvider, error) {
 	}
 
 	if config.Sandbox {
-		log.Info("inwx: sandbox mode is enabled.")
+		log.Infof("inwx: sandbox mode is enabled")
 	}
 
 	client := goinwx.NewClient(config.Username, config.Password, &goinwx.ClientOptions{Sandbox: config.Sandbox})
@@ -98,10 +96,10 @@ func NewDNSProviderConfig(config *Config) (*DNSProvider, error) {
 }
 
 // Present creates a TXT record using the specified parameters.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	authZone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, info.EffectiveFQDN)
+	authZone, err := dns01.FindZoneByFqdn(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("inwx: could not find zone for domain %q (%s): %w", domain, info.EffectiveFQDN, err)
 	}
@@ -114,7 +112,7 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 	defer func() {
 		errL := d.client.Account.Logout()
 		if errL != nil {
-			log.Warn("inwx: failed to log out.", log.ErrorAttr(errL))
+			log.Infof("inwx: failed to log out: %v", errL)
 		}
 	}()
 
@@ -145,10 +143,10 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	authZone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, info.EffectiveFQDN)
+	authZone, err := dns01.FindZoneByFqdn(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("inwx: could not find zone for domain %q (%s): %w", domain, info.EffectiveFQDN, err)
 	}
@@ -161,7 +159,7 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 	defer func() {
 		errL := d.client.Account.Logout()
 		if errL != nil {
-			log.Warn("inwx: failed to log out.", log.ErrorAttr(errL))
+			log.Infof("inwx: failed to log out: %v", errL)
 		}
 	}()
 
@@ -222,7 +220,7 @@ func (d *DNSProvider) twoFactorAuth(info *goinwx.LoginResponse) error {
 	// To avoid using the same TAN twice, we wait until the next TOTP period.
 	sleep := d.computeSleep(time.Now())
 	if sleep != 0 {
-		log.Info("inwx: waiting for the next TOTP token", slog.Duration("sleep", sleep))
+		log.Infof("inwx: waiting %s for next TOTP token", sleep)
 		time.Sleep(sleep)
 	}
 

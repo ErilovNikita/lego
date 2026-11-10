@@ -27,7 +27,7 @@ Here is an example bash command using the DNSimple provider:
 
 ```bash
 DNSIMPLE_OAUTH_TOKEN=1234567890abcdefghijklmnopqrstuvwxyz \
-lego run --dns dnsimple -d '*.example.com' -d example.com
+lego --dns dnsimple -d '*.example.com' -d example.com run
 ```
 
 

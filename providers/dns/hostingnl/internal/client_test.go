@@ -1,13 +1,14 @@
 package internal
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,7 +43,7 @@ func TestClient_AddRecord(t *testing.T) {
 		TTL:     120,
 	}
 
-	newRecord, err := client.AddRecord(t.Context(), "example.com", record)
+	newRecord, err := client.AddRecord(context.Background(), "example.com", record)
 	require.NoError(t, err)
 
 	expected := &Record{
@@ -64,7 +65,7 @@ func TestClient_DeleteRecord(t *testing.T) {
 			servermock.CheckRequestJSONBodyFromFixture("delete_record-request.json")).
 		Build(t)
 
-	err := client.DeleteRecord(t.Context(), "example.com", "12345")
+	err := client.DeleteRecord(context.Background(), "example.com", "12345")
 	require.NoError(t, err)
 }
 
@@ -75,7 +76,7 @@ func TestClient_DeleteRecord_error(t *testing.T) {
 				WithStatusCode(http.StatusUnauthorized)).
 		Build(t)
 
-	err := client.DeleteRecord(t.Context(), "example.com", "12345")
+	err := client.DeleteRecord(context.Background(), "example.com", "12345")
 	require.EqualError(t, err, "[status code: 401] Something went wrong")
 }
 
@@ -86,6 +87,6 @@ func TestClient_DeleteRecord_error_other(t *testing.T) {
 				WithStatusCode(http.StatusNotFound)).
 		Build(t)
 
-	err := client.DeleteRecord(t.Context(), "example.com", "12345")
+	err := client.DeleteRecord(context.Background(), "example.com", "12345")
 	require.EqualError(t, err, "[status code: 404] Resource not found")
 }

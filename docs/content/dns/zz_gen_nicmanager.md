@@ -34,7 +34,7 @@ NICMANAGER_API_PASSWORD = "password" \
 # Optionally, if your account has TOTP enabled, set the secret here
 NICMANAGER_API_OTP = "long-secret" \
 
-lego run --dns nicmanager -d '*.example.com' -d example.com
+lego --dns nicmanager -d '*.example.com' -d example.com run
 
 ## Login using account name + username
 
@@ -45,7 +45,7 @@ NICMANAGER_API_PASSWORD = "password" \
 # Optionally, if your account has TOTP enabled, set the secret here
 NICMANAGER_API_OTP = "long-secret" \
 
-lego run --dns nicmanager -d '*.example.com' -d example.com
+lego --dns nicmanager -d '*.example.com' -d example.com run
 ```
 
 

@@ -11,14 +11,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/go-acme/lego/v5/internal/errutils"
+	"github.com/go-acme/lego/v4/providers/dns/internal/errutils"
 )
 
 const identityBaseURL = "https://identity.%s.conoha.io"
-
-type token string
-
-const tokenKey token = "token"
 
 type Identifier struct {
 	baseURL    *url.URL
@@ -72,17 +68,4 @@ func (c *Identifier) do(req *http.Request) (string, error) {
 	_, _ = io.Copy(io.Discard, resp.Body)
 
 	return token, nil
-}
-
-func WithContext(ctx context.Context, credential string) context.Context {
-	return context.WithValue(ctx, tokenKey, credential)
-}
-
-func getToken(ctx context.Context) string {
-	credential, ok := ctx.Value(tokenKey).(string)
-	if !ok {
-		return ""
-	}
-
-	return credential
 }

@@ -6,7 +6,7 @@ Since = "v4.23.0"
 
 Example = '''
 METAREGISTRAR_API_TOKEN="xxxxxxxxxxxxxxxxxxxxx" \
-lego run --dns metaregistrar -d '*.example.com' -d example.com
+lego --dns metaregistrar -d '*.example.com' -d example.com run
 '''
 
 [Configuration]

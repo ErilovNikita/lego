@@ -27,7 +27,7 @@ Here is an example bash command using the DNSExit provider:
 
 ```bash
 DNSEXIT_API_KEY="xxxxxxxxxxxxxxxxxxxxx" \
-lego run --dns dnsexit -d '*.example.com' -d example.com
+lego --dns dnsexit -d '*.example.com' -d example.com run
 ```
 
 

@@ -30,17 +30,17 @@ Here is an example bash command using the Joker provider:
 JOKER_API_MODE=SVC \
 JOKER_USERNAME=<your email> \
 JOKER_PASSWORD=<your password> \
-lego run --dns joker -d '*.example.com' -d example.com
+lego --dns joker -d '*.example.com' -d example.com run
 
 # DMAPI
 JOKER_API_MODE=DMAPI \
 JOKER_USERNAME=<your email> \
 JOKER_PASSWORD=<your password> \
-lego run --dns joker -d '*.example.com' -d example.com
+lego --dns joker -d '*.example.com' -d example.com run
 ## or
 JOKER_API_MODE=DMAPI \
 JOKER_API_KEY=<your API key> \
-lego run --dns joker -d '*.example.com' -d example.com
+lego --dns joker -d '*.example.com' -d example.com run
 ```
 
 
@@ -74,7 +74,7 @@ More information [here]({{% ref "dns#configuration-and-credentials" %}}).
 
 ## SVC mode
 
-In the SVC mode, username and password are not your email and account passwords, but those displayed in Joker.com domain dashboard when enabling Dynamic DNS.
+In the SVC mode, username and passsword are not your email and account passwords, but those displayed in Joker.com domain dashboard when enabling Dynamic DNS.
 
 As per [Joker.com documentation](https://joker.com/faq/content/6/496/en/let_s-encrypt-support.html):
 

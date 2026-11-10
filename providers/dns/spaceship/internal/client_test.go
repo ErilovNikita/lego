@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,12 +20,11 @@ func mockBuilder() *servermock.Builder[*Client] {
 			}
 
 			client.HTTPClient = server.Client()
-			client.BaseURL, _ = url.Parse(server.URL)
+			client.baseURL, _ = url.Parse(server.URL)
 
 			return client, nil
 		},
-		servermock.CheckHeader().
-			WithJSONHeaders().
+		servermock.CheckHeader().WithJSONHeaders().
 			With("X-Api-Key", "key").
 			With("X-Api-Secret", "secret"),
 	)
@@ -33,17 +32,14 @@ func mockBuilder() *servermock.Builder[*Client] {
 
 func TestClient_AddRecord(t *testing.T) {
 	client := mockBuilder().
-		Route("PUT /dns/records/example.com",
-			servermock.Noop(),
-			servermock.CheckRequestJSONBodyFromFixture("add_record-request.json"),
-		).
+		Route("PUT /dns/records/example.com", nil,
+			servermock.CheckRequestJSONBody(`{"items":[{"type":"TXT","name":"@","ttl":60}]}`)).
 		Build(t)
 
 	record := Record{
-		Type:  "TXT",
-		Name:  "_acme-challenge",
-		Value: "ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY",
-		TTL:   120,
+		Type: "TXT",
+		Name: "@",
+		TTL:  60,
 	}
 
 	err := client.AddRecord(t.Context(), "example.com", record)
@@ -54,8 +50,7 @@ func TestClient_AddRecord_error(t *testing.T) {
 	client := mockBuilder().
 		Route("PUT /dns/records/example.com",
 			servermock.ResponseFromFixture("error.json").
-				WithStatusCode(http.StatusUnprocessableEntity),
-		).
+				WithStatusCode(http.StatusUnprocessableEntity)).
 		Build(t)
 
 	record := Record{
@@ -70,16 +65,14 @@ func TestClient_AddRecord_error(t *testing.T) {
 
 func TestClient_DeleteRecord(t *testing.T) {
 	client := mockBuilder().
-		Route("DELETE /dns/records/example.com",
-			servermock.Noop(),
-			servermock.CheckRequestJSONBodyFromFixture("delete_record-request.json"),
-		).
+		Route("DELETE /dns/records/example.com", nil,
+			servermock.CheckRequestJSONBody(`[{"type":"TXT","name":"@","ttl":60}]`)).
 		Build(t)
 
 	record := Record{
-		Type:  "TXT",
-		Name:  "_acme-challenge",
-		Value: "ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY",
+		Type: "TXT",
+		Name: "@",
+		TTL:  60,
 	}
 
 	err := client.DeleteRecord(t.Context(), "example.com", record)
@@ -90,14 +83,13 @@ func TestClient_DeleteRecord_error(t *testing.T) {
 	client := mockBuilder().
 		Route("DELETE /dns/records/example.com",
 			servermock.ResponseFromFixture("error.json").
-				WithStatusCode(http.StatusUnprocessableEntity),
-		).
+				WithStatusCode(http.StatusUnprocessableEntity)).
 		Build(t)
 
 	record := Record{
-		Type:  "TXT",
-		Name:  "_acme-challenge",
-		Value: "ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY",
+		Type: "TXT",
+		Name: "@",
+		TTL:  60,
 	}
 
 	err := client.DeleteRecord(t.Context(), "example.com", record)
@@ -107,8 +99,7 @@ func TestClient_DeleteRecord_error(t *testing.T) {
 func TestClient_GetRecords(t *testing.T) {
 	client := mockBuilder().
 		Route("GET /dns/records/example.com",
-			servermock.ResponseFromFixture("get_records.json"),
-		).
+			servermock.ResponseFromFixture("get-records.json")).
 		Build(t)
 
 	records, err := client.GetRecords(t.Context(), "example.com")
@@ -125,8 +116,7 @@ func TestClient_GetRecords_error(t *testing.T) {
 	client := mockBuilder().
 		Route("GET /dns/records/example.com",
 			servermock.ResponseFromFixture("error.json").
-				WithStatusCode(http.StatusUnprocessableEntity),
-		).
+				WithStatusCode(http.StatusUnprocessableEntity)).
 		Build(t)
 
 	_, err := client.GetRecords(t.Context(), "example.com")

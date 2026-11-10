@@ -6,8 +6,8 @@ import (
 	"crypto/rsa"
 	"testing"
 
-	"github.com/go-acme/lego/v5/acme"
-	"github.com/go-acme/lego/v5/internal/tester"
+	"github.com/go-acme/lego/v4/platform/tester"
+	"github.com/go-acme/lego/v4/registration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +20,7 @@ func TestNewClient(t *testing.T) {
 
 	user := mockUser{
 		email:      "test@test.com",
-		regres:     new(acme.ExtendedAccount),
+		regres:     new(registration.Resource),
 		privatekey: key,
 	}
 
@@ -36,10 +36,10 @@ func TestNewClient(t *testing.T) {
 
 type mockUser struct {
 	email      string
-	regres     *acme.ExtendedAccount
+	regres     *registration.Resource
 	privatekey *rsa.PrivateKey
 }
 
-func (u mockUser) GetEmail() string                       { return u.email }
-func (u mockUser) GetRegistration() *acme.ExtendedAccount { return u.regres }
-func (u mockUser) GetPrivateKey() crypto.Signer           { return u.privatekey }
+func (u mockUser) GetEmail() string                        { return u.email }
+func (u mockUser) GetRegistration() *registration.Resource { return u.regres }
+func (u mockUser) GetPrivateKey() crypto.PrivateKey        { return u.privatekey }

@@ -14,9 +14,9 @@
         "id": "123",
         "zoneId": "456",
         "recordTemplateId": "789",
-        "name": "_acme-challenge.example.com",
+        "name": "n",
         "type": "TXT",
-        "content": "\"ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY\"",
+        "content": "txt",
         "ttl": 120,
         "priority": 5,
         "lastChangeDate": "d"

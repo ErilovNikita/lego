@@ -5,17 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/log"
-	"github.com/go-acme/lego/v5/platform/env"
-	"github.com/go-acme/lego/v5/providers/dns/internal/clientdebug"
-	"github.com/go-acme/lego/v5/providers/dns/netcup/internal"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/log"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/internal/clientdebug"
+	"github.com/go-acme/lego/v4/providers/dns/netcup/internal"
 )
 
 // Environment variables names.
@@ -25,6 +24,9 @@ const (
 	EnvCustomerNumber = envNamespace + "CUSTOMER_NUMBER"
 	EnvAPIKey         = envNamespace + "API_KEY"
 	EnvAPIPassword    = envNamespace + "API_PASSWORD"
+
+	// Deprecated: the TTL is not configurable on record.
+	EnvTTL = envNamespace + "TTL"
 
 	EnvPropagationTimeout = envNamespace + "PROPAGATION_TIMEOUT"
 	EnvPollingInterval    = envNamespace + "POLLING_INTERVAL"
@@ -41,6 +43,9 @@ type Config struct {
 	PropagationTimeout time.Duration
 	PollingInterval    time.Duration
 	HTTPClient         *http.Client
+
+	// Deprecated: the TTL is not configurable on record.
+	TTL int
 }
 
 // NewDefaultConfig returns a default configuration for the DNSProvider.
@@ -98,23 +103,23 @@ func NewDNSProviderConfig(config *Config) (*DNSProvider, error) {
 }
 
 // Present creates a TXT record to fulfill the dns-01 challenge.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	zone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, info.EffectiveFQDN)
+	zone, err := dns01.FindZoneByFqdn(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("netcup: could not find zone for domain %q: %w", domain, err)
 	}
 
-	ctxAuth, err := d.client.CreateSessionContext(ctx)
+	ctx, err := d.client.CreateSessionContext(context.Background())
 	if err != nil {
 		return fmt.Errorf("netcup: %w", err)
 	}
 
 	defer func() {
-		err = d.client.Logout(ctxAuth)
+		err = d.client.Logout(ctx)
 		if err != nil {
-			log.Warn("netcup: failed to logout.", log.ErrorAttr(err))
+			log.Printf("netcup: %v", err)
 		}
 	}()
 
@@ -127,15 +132,15 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 
 	zone = dns01.UnFqdn(zone)
 
-	records, err := d.client.GetDNSRecords(ctxAuth, zone)
+	records, err := d.client.GetDNSRecords(ctx, zone)
 	if err != nil {
 		// skip no existing records
-		log.Info("netcup: No existing records, error ignored.", slog.String("zone", zone), log.ErrorAttr(err))
+		log.Infof("no existing records, error ignored: %v", err)
 	}
 
 	records = append(records, record)
 
-	err = d.client.UpdateDNSRecord(ctxAuth, zone, records)
+	err = d.client.UpdateDNSRecord(ctx, zone, records)
 	if err != nil {
 		return fmt.Errorf("netcup: failed to add TXT-Record: %w", err)
 	}
@@ -144,23 +149,23 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	zone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, info.EffectiveFQDN)
+	zone, err := dns01.FindZoneByFqdn(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("netcup: could not find zone for domain %q: %w", domain, err)
 	}
 
-	ctxAuth, err := d.client.CreateSessionContext(ctx)
+	ctx, err := d.client.CreateSessionContext(context.Background())
 	if err != nil {
 		return fmt.Errorf("netcup: %w", err)
 	}
 
 	defer func() {
-		err = d.client.Logout(ctxAuth)
+		err = d.client.Logout(ctx)
 		if err != nil {
-			log.Warn("netcup: failed to logout.", log.ErrorAttr(err))
+			log.Printf("netcup: %v", err)
 		}
 	}()
 
@@ -168,7 +173,7 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 
 	zone = dns01.UnFqdn(zone)
 
-	records, err := d.client.GetDNSRecords(ctxAuth, zone)
+	records, err := d.client.GetDNSRecords(ctx, zone)
 	if err != nil {
 		return fmt.Errorf("netcup: %w", err)
 	}
@@ -186,7 +191,7 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 
 	records[idx].DeleteRecord = true
 
-	err = d.client.UpdateDNSRecord(ctxAuth, zone, []internal.DNSRecord{records[idx]})
+	err = d.client.UpdateDNSRecord(ctx, zone, []internal.DNSRecord{records[idx]})
 	if err != nil {
 		return fmt.Errorf("netcup: %w", err)
 	}

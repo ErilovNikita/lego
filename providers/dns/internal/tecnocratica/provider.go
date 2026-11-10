@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/providers/dns/internal/clientdebug"
-	"github.com/go-acme/lego/v5/providers/dns/internal/tecnocratica/internal"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/providers/dns/internal/clientdebug"
+	"github.com/go-acme/lego/v4/providers/dns/internal/tecnocratica/internal"
 )
 
 var _ challenge.ProviderTimeout = (*DNSProvider)(nil)
@@ -80,10 +80,12 @@ func (d *DNSProvider) Timeout() (timeout, interval time.Duration) {
 }
 
 // Present creates a TXT record using the specified parameters.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	ctx := context.Background()
 
-	authZone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, info.EffectiveFQDN)
+	info := dns01.GetChallengeInfo(domain, keyAuth)
+
+	authZone, err := dns01.FindZoneByFqdn(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("could not find zone for domain %q: %w", domain, err)
 	}
@@ -121,8 +123,8 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
 	d.recordIDsMu.Lock()
 	zoneID, zoneOK := d.zoneIDs[token]
@@ -133,7 +135,7 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 		return fmt.Errorf("unknown record ID or zone ID for '%s' '%s'", info.EffectiveFQDN, token)
 	}
 
-	err := d.client.DeleteRecord(ctx, zoneID, recordID)
+	err := d.client.DeleteRecord(context.Background(), zoneID, recordID)
 	if err != nil {
 		return fmt.Errorf("delete record: fqdn=%s, zoneID=%d, recordID=%d: %w",
 			info.EffectiveFQDN, zoneID, recordID, err)

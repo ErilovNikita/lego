@@ -1,17 +1,17 @@
 package certificate
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
 	"net/http"
 	"testing"
 
-	"github.com/go-acme/lego/v5/acme"
-	"github.com/go-acme/lego/v5/acme/api"
-	"github.com/go-acme/lego/v5/internal/tester"
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/acme"
+	"github.com/go-acme/lego/v4/acme/api"
+	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/platform/tester"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -185,7 +185,7 @@ func Test_checkResponse(t *testing.T) {
 	core, err := api.New(server.Client(), "lego-test", server.URL+"/dir", "", key)
 	require.NoError(t, err)
 
-	certifier := NewCertifier(core, &resolverMock{}, CertifierOptions{})
+	certifier := NewCertifier(core, &resolverMock{}, CertifierOptions{KeyType: certcrypto.RSA2048})
 
 	order := acme.ExtendedOrder{
 		Order: acme.Order{
@@ -193,15 +193,13 @@ func Test_checkResponse(t *testing.T) {
 			Certificate: server.URL + "/certificate",
 		},
 	}
-
 	certRes := &Resource{}
 
-	valid, err := certifier.checkResponse(t.Context(), certRes, order, true, "")
+	valid, err := certifier.checkResponse(order, certRes, true, "")
 	require.NoError(t, err)
 	assert.True(t, valid)
 	assert.NotNil(t, certRes)
-	assert.Empty(t, certRes.ID)
-	assert.Empty(t, certRes.Domains)
+	assert.Empty(t, certRes.Domain)
 	assert.Contains(t, certRes.CertStableURL, "/certificate")
 	assert.Contains(t, certRes.CertURL, "/certificate")
 	assert.Nil(t, certRes.CSR)
@@ -221,7 +219,7 @@ func Test_checkResponse_issuerRelUp(t *testing.T) {
 	core, err := api.New(server.Client(), "lego-test", server.URL+"/dir", "", key)
 	require.NoError(t, err)
 
-	certifier := NewCertifier(core, &resolverMock{}, CertifierOptions{})
+	certifier := NewCertifier(core, &resolverMock{}, CertifierOptions{KeyType: certcrypto.RSA2048})
 
 	order := acme.ExtendedOrder{
 		Order: acme.Order{
@@ -229,15 +227,13 @@ func Test_checkResponse_issuerRelUp(t *testing.T) {
 			Certificate: server.URL + "/certificate",
 		},
 	}
-
 	certRes := &Resource{}
 
-	valid, err := certifier.checkResponse(t.Context(), certRes, order, true, "")
+	valid, err := certifier.checkResponse(order, certRes, true, "")
 	require.NoError(t, err)
 	assert.True(t, valid)
 	assert.NotNil(t, certRes)
-	assert.Empty(t, certRes.ID)
-	assert.Empty(t, certRes.Domains)
+	assert.Empty(t, certRes.Domain)
 	assert.Contains(t, certRes.CertStableURL, "/certificate")
 	assert.Contains(t, certRes.CertURL, "/certificate")
 	assert.Nil(t, certRes.CSR)
@@ -257,7 +253,7 @@ func Test_checkResponse_no_bundle(t *testing.T) {
 	core, err := api.New(server.Client(), "lego-test", server.URL+"/dir", "", key)
 	require.NoError(t, err)
 
-	certifier := NewCertifier(core, &resolverMock{}, CertifierOptions{})
+	certifier := NewCertifier(core, &resolverMock{}, CertifierOptions{KeyType: certcrypto.RSA2048})
 
 	order := acme.ExtendedOrder{
 		Order: acme.Order{
@@ -265,15 +261,13 @@ func Test_checkResponse_no_bundle(t *testing.T) {
 			Certificate: server.URL + "/certificate",
 		},
 	}
-
 	certRes := &Resource{}
 
-	valid, err := certifier.checkResponse(t.Context(), certRes, order, false, "")
+	valid, err := certifier.checkResponse(order, certRes, false, "")
 	require.NoError(t, err)
 	assert.True(t, valid)
 	assert.NotNil(t, certRes)
-	assert.Empty(t, certRes.ID)
-	assert.Empty(t, certRes.Domains)
+	assert.Empty(t, certRes.Domain)
 	assert.Contains(t, certRes.CertStableURL, "/certificate")
 	assert.Contains(t, certRes.CertURL, "/certificate")
 	assert.Nil(t, certRes.CSR)
@@ -300,7 +294,7 @@ func Test_checkResponse_alternate(t *testing.T) {
 	core, err := api.New(server.Client(), "lego-test", server.URL+"/dir", "", key)
 	require.NoError(t, err)
 
-	certifier := NewCertifier(core, &resolverMock{}, CertifierOptions{})
+	certifier := NewCertifier(core, &resolverMock{}, CertifierOptions{KeyType: certcrypto.RSA2048})
 
 	order := acme.ExtendedOrder{
 		Order: acme.Order{
@@ -308,19 +302,16 @@ func Test_checkResponse_alternate(t *testing.T) {
 			Certificate: server.URL + "/certificate",
 		},
 	}
-
 	certRes := &Resource{
-		ID:      "example.com",
-		Domains: []string{"example.com"},
+		Domain: "example.com",
 	}
 
-	valid, err := certifier.checkResponse(t.Context(), certRes, order, true, "DST Root CA X3")
+	valid, err := certifier.checkResponse(order, certRes, true, "DST Root CA X3")
 	require.NoError(t, err)
 
 	assert.True(t, valid)
 	assert.NotNil(t, certRes)
-	assert.Equal(t, "example.com", certRes.ID)
-	assert.Equal(t, []string{"example.com"}, certRes.Domains)
+	assert.Equal(t, "example.com", certRes.Domain)
 	assert.Contains(t, certRes.CertStableURL, "/certificate/1")
 	assert.Contains(t, certRes.CertURL, "/certificate/1")
 	assert.Nil(t, certRes.CSR)
@@ -340,14 +331,13 @@ func Test_Get(t *testing.T) {
 	core, err := api.New(server.Client(), "lego-test", server.URL+"/dir", "", key)
 	require.NoError(t, err)
 
-	certifier := NewCertifier(core, &resolverMock{}, CertifierOptions{})
+	certifier := NewCertifier(core, &resolverMock{}, CertifierOptions{KeyType: certcrypto.RSA2048})
 
-	certRes, err := certifier.Get(t.Context(), server.URL+"/acme/cert/test-cert", true)
+	certRes, err := certifier.Get(server.URL+"/acme/cert/test-cert", true)
 	require.NoError(t, err)
 
 	assert.NotNil(t, certRes)
-	assert.Equal(t, "acme.wtf", certRes.ID)
-	assert.Equal(t, []string{"acme.wtf"}, certRes.Domains)
+	assert.Equal(t, "acme.wtf", certRes.Domain)
 	assert.Equal(t, server.URL+"/acme/cert/test-cert", certRes.CertStableURL)
 	assert.Equal(t, server.URL+"/acme/cert/test-cert", certRes.CertURL)
 	assert.Nil(t, certRes.CSR)
@@ -405,6 +395,6 @@ type resolverMock struct {
 	error error
 }
 
-func (r *resolverMock) Solve(_ context.Context, _ []acme.Authorization) error {
+func (r *resolverMock) Solve(_ []acme.Authorization) error {
 	return r.error
 }

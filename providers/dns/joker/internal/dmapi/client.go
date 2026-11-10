@@ -14,8 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/internal/errutils"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/log"
+	"github.com/go-acme/lego/v4/providers/dns/internal/errutils"
 )
 
 const defaultBaseURL = "https://dmapi.joker.com/request/"
@@ -44,6 +45,7 @@ type Client struct {
 	token   *Token
 	muToken sync.Mutex
 
+	Debug      bool
 	BaseURL    string
 	HTTPClient *http.Client
 }
@@ -86,6 +88,10 @@ func (c *Client) postRequest(ctx context.Context, cmd string, data url.Values) (
 
 	if getSessionID(ctx) != "" {
 		data.Set("auth-sid", getSessionID(ctx))
+	}
+
+	if c.Debug {
+		log.Infof("postRequest:\n\tURL: %q\n\tData: %v", endpoint, data)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))

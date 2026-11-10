@@ -5,13 +5,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"slices"
 	"strings"
 
-	"github.com/go-acme/lego/v5/log"
-	"github.com/go-acme/lego/v5/platform/env"
+	"github.com/go-acme/lego/v4/log"
+	"github.com/go-acme/lego/v4/platform/config/env"
 	"github.com/nrdcg/oci-go-sdk/common/v1065"
 )
 
@@ -134,12 +133,7 @@ func getEnvFileWithStrictFallback(keys ...string) []byte {
 
 		fileContents, err := os.ReadFile(fileVarValue)
 		if err != nil {
-			log.Debug("Failed to read the file.",
-				slog.String("filepath", fileVarValue),
-				slog.String("envVar", key),
-				log.ErrorAttr(err),
-			)
-
+			log.Printf("Failed to read the file %s (defined by env var %s): %s", fileVarValue, key, err)
 			return nil
 		}
 

@@ -4,17 +4,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 	"github.com/stretchr/testify/require"
 )
 
 func setupClient(server *httptest.Server) (*Client, error) {
-	client, err := NewClient("user", "secret")
+	client, err := NewClient("foo", "secret")
 	if err != nil {
 		return nil, err
 	}
 
-	client.BaseURL = server.URL
+	client.baseURL = server.URL
 	client.HTTPClient = server.Client()
 
 	return client, nil
@@ -28,12 +28,12 @@ func TestClient_SetRecord(t *testing.T) {
 	}{
 		{
 			desc:     "success",
-			response: "set_record.json",
+			response: `{"message":"OK","result":200}`,
 			assert:   require.NoError,
 		},
 		{
 			desc:     "failure",
-			response: "error.json",
+			response: `{"message":"Not Found :  the information you requested was not found.","result":404}`,
 			assert:   require.Error,
 		},
 	}
@@ -44,12 +44,11 @@ func TestClient_SetRecord(t *testing.T) {
 
 			client := servermock.NewBuilder[*Client](setupClient, servermock.CheckHeader().WithJSONHeaders()).
 				Route("PUT /host",
-					servermock.ResponseFromFixture(test.response),
-					servermock.CheckRequestJSONBodyFromFixture("set_record_add-request.json"),
-				).
+					servermock.RawStringResponse(test.response),
+					servermock.CheckRequestJSONBody(`{"userid":"foo","apikey":"secret","hostname":"example.com","value":"txttxttxt","ttl":10,"type":"TXT"}`)).
 				Build(t)
 
-			err := client.SetRecord(t.Context(), "_acme-challenge.example.com", "ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY", 120)
+			err := client.SetRecord(t.Context(), "example.com", "txttxttxt", 10)
 			test.assert(t, err)
 		})
 	}

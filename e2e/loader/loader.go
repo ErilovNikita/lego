@@ -7,8 +7,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -18,22 +16,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-acme/lego/v5/internal/wait"
-	"github.com/go-acme/lego/v5/log"
+	"github.com/go-acme/lego/v4/platform/wait"
 	"github.com/ldez/grignotin/goenv"
 )
 
 const (
 	cmdNamePebble   = "pebble"
 	cmdNameChallSrv = "pebble-challtestsrv"
-)
-
-const (
-	// If defined, e2e tests are enabled.
-	envLegoTests = "LEGO_E2E_TESTS"
-
-	// If defined, the cleaning of the .lego directory is skipped.
-	envLegoTestsSkipClean = "LEGO_E2E_TESTS_SKIP_CLEAN"
 )
 
 type CmdOption struct {
@@ -50,8 +39,8 @@ type EnvLoader struct {
 	lego          string
 }
 
-func (l *EnvLoader) MainTest(ctx context.Context, m *testing.M) int {
-	if _, e2e := os.LookupEnv(envLegoTests); !e2e {
+func (l *EnvLoader) MainTest(m *testing.M) int {
+	if _, e2e := os.LookupEnv("LEGO_E2E_TESTS"); !e2e {
 		fmt.Fprintln(os.Stderr, "skipping test: e2e tests are disabled. (no 'LEGO_E2E_TESTS' env var)")
 		fmt.Println("PASS")
 
@@ -83,13 +72,13 @@ func (l *EnvLoader) MainTest(ctx context.Context, m *testing.M) int {
 		}
 	}
 
-	pebbleTearDown := l.launchPebble(ctx)
+	pebbleTearDown := l.launchPebble()
 	defer pebbleTearDown()
 
-	challSrvTearDown := l.launchChallSrv(ctx)
+	challSrvTearDown := l.launchChallSrv()
 	defer challSrvTearDown()
 
-	legoBinary, tearDown, err := buildLego(ctx)
+	legoBinary, tearDown, err := buildLego()
 	defer tearDown()
 
 	if err != nil {
@@ -106,8 +95,8 @@ func (l *EnvLoader) MainTest(ctx context.Context, m *testing.M) int {
 	return m.Run()
 }
 
-func (l *EnvLoader) RunLegoCombinedOutput(ctx context.Context, arg ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, l.lego, arg...)
+func (l *EnvLoader) RunLegoCombinedOutput(arg ...string) ([]byte, error) {
+	cmd := exec.Command(l.lego, arg...)
 	cmd.Env = l.LegoOptions
 
 	fmt.Printf("$ %s\n", strings.Join(cmd.Args, " "))
@@ -115,14 +104,9 @@ func (l *EnvLoader) RunLegoCombinedOutput(ctx context.Context, arg ...string) ([
 	return cmd.CombinedOutput()
 }
 
-func (l *EnvLoader) RunLego(ctx context.Context, arg ...string) error {
-	return l.RunLegoWithInput(ctx, nil, arg...)
-}
-
-func (l *EnvLoader) RunLegoWithInput(ctx context.Context, stdin io.Reader, arg ...string) error {
-	cmd := exec.CommandContext(ctx, l.lego, arg...)
+func (l *EnvLoader) RunLego(arg ...string) error {
+	cmd := exec.Command(l.lego, arg...)
 	cmd.Env = l.LegoOptions
-	cmd.Stdin = stdin
 
 	fmt.Printf("$ %s\n", strings.Join(cmd.Args, " "))
 
@@ -151,12 +135,12 @@ func (l *EnvLoader) RunLegoWithInput(ctx context.Context, stdin io.Reader, arg .
 	return nil
 }
 
-func (l *EnvLoader) launchPebble(ctx context.Context) func() {
+func (l *EnvLoader) launchPebble() func() {
 	if l.PebbleOptions == nil {
 		return func() {}
 	}
 
-	pebble, outPebble := l.cmdPebble(ctx)
+	pebble, outPebble := l.cmdPebble()
 
 	go func() {
 		err := pebble.Run()
@@ -175,8 +159,8 @@ func (l *EnvLoader) launchPebble(ctx context.Context) func() {
 	}
 }
 
-func (l *EnvLoader) cmdPebble(ctx context.Context) (*exec.Cmd, *bytes.Buffer) {
-	cmd := exec.CommandContext(ctx, cmdNamePebble, l.PebbleOptions.Args...)
+func (l *EnvLoader) cmdPebble() (*exec.Cmd, *bytes.Buffer) {
+	cmd := exec.Command(cmdNamePebble, l.PebbleOptions.Args...)
 	cmd.Env = l.PebbleOptions.Env
 
 	dir, err := filepath.Abs(l.PebbleOptions.Dir)
@@ -199,9 +183,7 @@ func (l *EnvLoader) cmdPebble(ctx context.Context) (*exec.Cmd, *bytes.Buffer) {
 func pebbleHealthCheck(options *CmdOption) {
 	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
 
-	log.Info("pebble: waiting for health check.", slog.String("url", options.HealthCheckURL))
-
-	err := wait.For(10*time.Second, 500*time.Millisecond, func() (bool, error) {
+	err := wait.For("pebble", 10*time.Second, 500*time.Millisecond, func() (bool, error) {
 		resp, err := client.Get(options.HealthCheckURL)
 		if err != nil {
 			return false, err
@@ -218,12 +200,12 @@ func pebbleHealthCheck(options *CmdOption) {
 	}
 }
 
-func (l *EnvLoader) launchChallSrv(ctx context.Context) func() {
+func (l *EnvLoader) launchChallSrv() func() {
 	if l.ChallSrv == nil {
 		return func() {}
 	}
 
-	challtestsrv, outChalSrv := l.cmdChallSrv(ctx)
+	challtestsrv, outChalSrv := l.cmdChallSrv()
 
 	go func() {
 		err := challtestsrv.Run()
@@ -242,8 +224,8 @@ func (l *EnvLoader) launchChallSrv(ctx context.Context) func() {
 	}
 }
 
-func (l *EnvLoader) cmdChallSrv(ctx context.Context) (*exec.Cmd, *bytes.Buffer) {
-	cmd := exec.CommandContext(ctx, cmdNameChallSrv, l.ChallSrv.Args...)
+func (l *EnvLoader) cmdChallSrv() (*exec.Cmd, *bytes.Buffer) {
+	cmd := exec.Command(cmdNameChallSrv, l.ChallSrv.Args...)
 
 	fmt.Printf("$ %s\n", strings.Join(cmd.Args, " "))
 
@@ -255,7 +237,7 @@ func (l *EnvLoader) cmdChallSrv(ctx context.Context) (*exec.Cmd, *bytes.Buffer) 
 	return cmd, &b
 }
 
-func buildLego(ctx context.Context) (string, func(), error) {
+func buildLego() (string, func(), error) {
 	here, err := os.Getwd()
 	if err != nil {
 		return "", func() {}, err
@@ -268,19 +250,21 @@ func buildLego(ctx context.Context) (string, func(), error) {
 		return "", func() {}, err
 	}
 
-	projectRoot, err := getProjectRoot(ctx)
+	projectRoot, err := getProjectRoot()
 	if err != nil {
 		return "", func() {}, err
 	}
 
-	err = os.Chdir(projectRoot)
+	mainFolder := filepath.Join(projectRoot, "cmd", "lego")
+
+	err = os.Chdir(mainFolder)
 	if err != nil {
 		return "", func() {}, err
 	}
 
 	binary := filepath.Join(buildPath, "lego")
 
-	err = build(ctx, binary)
+	err = build(binary)
 	if err != nil {
 		return "", func() {}, err
 	}
@@ -293,12 +277,12 @@ func buildLego(ctx context.Context) (string, func(), error) {
 	return binary, func() {
 		_ = os.RemoveAll(buildPath)
 
-		CleanLegoFiles(ctx)
+		CleanLegoFiles()
 	}, nil
 }
 
-func getProjectRoot(ctx context.Context) (string, error) {
-	git := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel")
+func getProjectRoot() (string, error) {
+	git := exec.Command("git", "rev-parse", "--show-toplevel")
 
 	output, err := git.CombinedOutput()
 	if err != nil {
@@ -309,13 +293,13 @@ func getProjectRoot(ctx context.Context) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-func build(ctx context.Context, binary string) error {
-	toolPath, err := goToolPath(ctx)
+func build(binary string) error {
+	toolPath, err := goToolPath()
 	if err != nil {
 		return err
 	}
 
-	cmd := exec.CommandContext(ctx, toolPath, "build", "-o", binary)
+	cmd := exec.Command(toolPath, "build", "-o", binary)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -326,7 +310,7 @@ func build(ctx context.Context, binary string) error {
 	return nil
 }
 
-func goToolPath(ctx context.Context) (string, error) {
+func goToolPath() (string, error) {
 	// inspired by go1.11.1/src/internal/testenv/testenv.go
 	if os.Getenv("GO_GCFLAGS") != "" {
 		return "", errors.New("'go build' not compatible with setting $GO_GCFLAGS")
@@ -336,16 +320,16 @@ func goToolPath(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("skipping test: 'go build' not available on %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 
-	return goTool(ctx)
+	return goTool()
 }
 
-func goTool(ctx context.Context) (string, error) {
+func goTool() (string, error) {
 	var exeSuffix string
 	if runtime.GOOS == "windows" {
 		exeSuffix = ".exe"
 	}
 
-	goRoot, err := goenv.GetOne(ctx, goenv.GOROOT)
+	goRoot, err := goenv.GetOne(context.Background(), goenv.GOROOT)
 	if err != nil {
 		return "", fmt.Errorf("cannot find go root: %w", err)
 	}
@@ -363,12 +347,8 @@ func goTool(ctx context.Context) (string, error) {
 	return goBin, nil
 }
 
-func CleanLegoFiles(ctx context.Context) {
-	if _, e2e := os.LookupEnv(envLegoTestsSkipClean); e2e {
-		return
-	}
-
-	cmd := exec.CommandContext(ctx, "rm", "-rf", ".lego")
+func CleanLegoFiles() {
+	cmd := exec.Command("rm", "-rf", ".lego")
 	fmt.Printf("$ %s\n", strings.Join(cmd.Args, " "))
 
 	output, err := cmd.CombinedOutput()

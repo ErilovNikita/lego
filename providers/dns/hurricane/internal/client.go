@@ -5,15 +5,14 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v5/internal/errutils"
-	"github.com/go-acme/lego/v5/log"
+	"github.com/go-acme/lego/v4/providers/dns/internal/errutils"
 	"golang.org/x/time/rate"
 )
 
@@ -53,13 +52,15 @@ func NewClient(credentials map[string]string) *Client {
 }
 
 // UpdateTxtRecord updates a TXT record.
-func (c *Client) UpdateTxtRecord(ctx context.Context, zone, hostname, txt string) error {
+func (c *Client) UpdateTxtRecord(ctx context.Context, hostname, txt string) error {
+	domain := strings.TrimPrefix(hostname, "_acme-challenge.")
+
 	c.credMu.Lock()
-	token, ok := c.credentials[zone]
+	token, ok := c.credentials[domain]
 	c.credMu.Unlock()
 
 	if !ok {
-		return fmt.Errorf("domain %s not found in credentials, check your credentials map", zone)
+		return fmt.Errorf("domain %s not found in credentials, check your credentials map", domain)
 	}
 
 	data := url.Values{}
@@ -107,11 +108,7 @@ func evaluateBody(body, hostname string) error {
 	case codeGood:
 		return nil
 	case codeNoChg:
-		log.Debug("unchanged content written to TXT record.",
-			slog.String("hostname", hostname),
-			slog.String("body", body),
-		)
-
+		log.Printf("%s: unchanged content written to TXT record %s", body, hostname)
 		return nil
 	case codeAbuse:
 		return fmt.Errorf("%s: blocked hostname for abuse: %s", body, hostname)

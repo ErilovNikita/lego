@@ -1,11 +1,12 @@
 package internal
 
 import (
+	"context"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,7 +38,7 @@ func TestClient_GetTXTRecords(t *testing.T) {
 		).
 		Build(t)
 
-	data, err := client.GetTXTRecords(t.Context(), "example.com")
+	data, err := client.GetTXTRecords(context.Background(), "example.com")
 	require.NoError(t, err)
 
 	expected := []Record{{Data: "v=spf1 redirect=beget.com", TTL: 300}}
@@ -56,7 +57,7 @@ func TestClient_ChangeTXTRecord(t *testing.T) {
 
 	records := []Record{{Value: "txtTXTtxt", TTL: 300, Priority: 10}}
 
-	err := client.ChangeTXTRecord(t.Context(), "sub.example.com", records)
+	err := client.ChangeTXTRecord(context.Background(), "sub.example.com", records)
 	require.NoError(t, err)
 }
 
@@ -68,7 +69,7 @@ func TestClient_ChangeTXTRecord_error(t *testing.T) {
 
 	records := []Record{{Data: "txtTXTtxt", TTL: 300}}
 
-	err := client.ChangeTXTRecord(t.Context(), "sub.example.com", records)
+	err := client.ChangeTXTRecord(context.Background(), "sub.example.com", records)
 	require.Error(t, err)
 
 	require.EqualError(t, err, "API error: NO_SUCH_METHOD: No such method")
@@ -82,7 +83,7 @@ func TestClient_ChangeTXTRecord_answer_error(t *testing.T) {
 
 	records := []Record{{Data: "txtTXTtxt", TTL: 300}}
 
-	err := client.ChangeTXTRecord(t.Context(), "sub.example.com", records)
+	err := client.ChangeTXTRecord(context.Background(), "sub.example.com", records)
 	require.Error(t, err)
 
 	require.EqualError(t, err, "API answer error: INVALID_DATA: Login length cannot be greater than 12 characters")
@@ -97,6 +98,6 @@ func TestClient_ChangeTXTRecord_remove(t *testing.T) {
 		).
 		Build(t)
 
-	err := client.ChangeTXTRecord(t.Context(), "sub.example.com", nil)
+	err := client.ChangeTXTRecord(context.Background(), "sub.example.com", nil)
 	require.NoError(t, err)
 }

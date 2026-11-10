@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-acme/lego/v5/internal/tester"
+	"github.com/go-acme/lego/v4/platform/tester"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,12 +23,13 @@ func TestNewDNSProvider(t *testing.T) {
 		expected string
 	}{
 		{
-			desc: "complete credentials",
+			desc: "complete credentials, but login failed",
 			envVars: map[string]string{
 				EnvTenantID:    "tenant_id",
 				EnvAPIUsername: "api_username",
 				EnvAPIPassword: "api_password",
 			},
+			expected: `conoha: failed to log in: unexpected status code: [status code: 401] body: {"unauthorized":{"message":"Invalid user: api_username","code":401}}`,
 		},
 		{
 			desc: "missing credentials",
@@ -98,7 +99,8 @@ func TestNewDNSProviderConfig(t *testing.T) {
 		password string
 	}{
 		{
-			desc:     "complete credentials",
+			desc:     "complete credentials, but login failed",
+			expected: `conoha: failed to log in: unexpected status code: [status code: 401] body: {"unauthorized":{"message":"Invalid user: api_username","code":401}}`,
 			tenant:   "tenant_id",
 			username: "api_username",
 			password: "api_password",
@@ -158,7 +160,7 @@ func TestLivePresent(t *testing.T) {
 	provider, err := NewDNSProvider()
 	require.NoError(t, err)
 
-	err = provider.Present(t.Context(), envTest.GetDomain(), "", "123d==")
+	err = provider.Present(envTest.GetDomain(), "", "123d==")
 	require.NoError(t, err)
 }
 
@@ -174,6 +176,6 @@ func TestLiveCleanUp(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	err = provider.CleanUp(t.Context(), envTest.GetDomain(), "", "123d==")
+	err = provider.CleanUp(envTest.GetDomain(), "", "123d==")
 	require.NoError(t, err)
 }

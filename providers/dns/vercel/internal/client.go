@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/internal/errutils"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/providers/dns/internal/errutils"
 	"golang.org/x/oauth2"
 )
 
@@ -21,8 +21,8 @@ const defaultBaseURL = "https://api.vercel.com"
 type Client struct {
 	teamID string
 
-	BaseURL    *url.URL
-	HTTPClient *http.Client
+	baseURL    *url.URL
+	httpClient *http.Client
 }
 
 // NewClient creates a Client.
@@ -35,15 +35,15 @@ func NewClient(hc *http.Client, teamID string) *Client {
 
 	return &Client{
 		teamID:     teamID,
-		BaseURL:    baseURL,
-		HTTPClient: hc,
+		baseURL:    baseURL,
+		httpClient: hc,
 	}
 }
 
 // CreateRecord creates a DNS record.
 // https://vercel.com/docs/rest-api#endpoints/dns/create-a-dns-record
 func (c *Client) CreateRecord(ctx context.Context, zone string, record Record) (*CreateRecordResponse, error) {
-	endpoint := c.BaseURL.JoinPath("v2", "domains", dns01.UnFqdn(zone), "records")
+	endpoint := c.baseURL.JoinPath("v2", "domains", dns01.UnFqdn(zone), "records")
 
 	req, err := newJSONRequest(ctx, http.MethodPost, endpoint, record)
 	if err != nil {
@@ -63,7 +63,7 @@ func (c *Client) CreateRecord(ctx context.Context, zone string, record Record) (
 // DeleteRecord deletes a DNS record.
 // https://vercel.com/docs/rest-api#endpoints/dns/delete-a-dns-record
 func (c *Client) DeleteRecord(ctx context.Context, zone, recordID string) error {
-	endpoint := c.BaseURL.JoinPath("v2", "domains", dns01.UnFqdn(zone), "records", recordID)
+	endpoint := c.baseURL.JoinPath("v2", "domains", dns01.UnFqdn(zone), "records", recordID)
 
 	req, err := newJSONRequest(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {
@@ -80,7 +80,7 @@ func (c *Client) do(req *http.Request, result any) error {
 		req.URL.RawQuery = query.Encode()
 	}
 
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return errutils.NewHTTPDoError(req, err)
 	}

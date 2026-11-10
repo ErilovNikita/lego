@@ -1,4 +1,4 @@
-// Package infomaniak implements a DNS provider for solving the DNS-01 challenge using Infomaniak.
+// Package infomaniak implements a DNS provider for solving the DNS-01 challenge using Infomaniak DNS.
 package infomaniak
 
 import (
@@ -9,18 +9,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/platform/env"
-	"github.com/go-acme/lego/v5/providers/dns/infomaniak/internal"
-	"github.com/go-acme/lego/v5/providers/dns/internal/clientdebug"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/infomaniak/internal"
+	"github.com/go-acme/lego/v4/providers/dns/internal/clientdebug"
 )
+
+// Infomaniak API reference: https://api.infomaniak.com/doc
+// Create a Token: https://manager.infomaniak.com/v3/infomaniak-api
 
 // Environment variables names.
 const (
 	envNamespace = "INFOMANIAK_"
 
-	EnvEndpoint    = envNamespace + "ENDPOINT" // TODO(ldez): remove in v6
+	EnvEndpoint    = envNamespace + "ENDPOINT"
 	EnvAccessToken = envNamespace + "ACCESS_TOKEN"
 
 	EnvTTL                = envNamespace + "TTL"
@@ -33,9 +36,8 @@ var _ challenge.ProviderTimeout = (*DNSProvider)(nil)
 
 // Config is used to configure the creation of the DNSProvider.
 type Config struct {
-	APIEndpoint string
-	AccessToken string
-
+	APIEndpoint        string
+	AccessToken        string
 	PropagationTimeout time.Duration
 	PollingInterval    time.Duration
 	TTL                int
@@ -60,12 +62,15 @@ type DNSProvider struct {
 	config *Config
 	client *internal.Client
 
-	zones       map[string]string
-	recordIDs   map[string]int
+	recordIDs   map[string]string
 	recordIDsMu sync.Mutex
+
+	domainIDs   map[string]uint64
+	domainIDsMu sync.Mutex
 }
 
 // NewDNSProvider returns a DNSProvider instance configured for Infomaniak.
+// Credentials must be passed in the environment variables: INFOMANIAK_ACCESS_TOKEN.
 func NewDNSProvider() (*DNSProvider, error) {
 	values, err := env.Get(EnvAccessToken)
 	if err != nil {
@@ -92,85 +97,96 @@ func NewDNSProviderConfig(config *Config) (*DNSProvider, error) {
 		return nil, errors.New("infomaniak: missing access token")
 	}
 
-	client, err := internal.NewClient(
+	client, err := internal.New(
 		clientdebug.Wrap(
 			internal.OAuthStaticAccessToken(config.HTTPClient, config.AccessToken),
 		),
-		config.APIEndpoint,
-	)
+		config.APIEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("infomaniak: new client: %w", err)
+		return nil, fmt.Errorf("infomaniak: %w", err)
 	}
 
 	return &DNSProvider{
 		config:    config,
 		client:    client,
-		zones:     make(map[string]string),
-		recordIDs: make(map[string]int),
+		recordIDs: make(map[string]string),
+		domainIDs: make(map[string]uint64),
 	}, nil
 }
 
-// Present creates a TXT record using the specified parameters.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+// Present creates a TXT record to fulfill the dns-01 challenge.
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	zone, err := d.findZone(ctx, dns01.UnFqdn(info.EffectiveFQDN))
+	ctx := context.Background()
+
+	ikDomain, err := d.client.GetDomainByName(ctx, dns01.UnFqdn(info.EffectiveFQDN))
+	if err != nil {
+		return fmt.Errorf("infomaniak: could not get domain %q: %w", info.EffectiveFQDN, err)
+	}
+
+	d.domainIDsMu.Lock()
+	d.domainIDs[token] = ikDomain.ID
+	d.domainIDsMu.Unlock()
+
+	subDomain, err := dns01.ExtractSubDomain(info.EffectiveFQDN, ikDomain.CustomerName)
 	if err != nil {
 		return fmt.Errorf("infomaniak: %w", err)
 	}
 
-	d.recordIDsMu.Lock()
-	d.zones[token] = zone
-	d.recordIDsMu.Unlock()
-
-	subDomain, err := dns01.ExtractSubDomain(dns01.UnFqdn(info.EffectiveFQDN), zone)
-	if err != nil {
-		return fmt.Errorf("infomaniak: %w", err)
-	}
-
-	r := internal.RecordRequest{
+	record := internal.Record{
 		Source: subDomain,
 		Target: info.Value,
-		TTL:    d.config.TTL,
 		Type:   "TXT",
+		TTL:    d.config.TTL,
 	}
 
-	record, err := d.client.CreateRecord(ctx, zone, r)
+	recordID, err := d.client.CreateDNSRecord(ctx, ikDomain, record)
 	if err != nil {
-		return fmt.Errorf("infomaniak: create record: %w", err)
+		return fmt.Errorf("infomaniak: error when calling api to create DNS record: %w", err)
 	}
 
 	d.recordIDsMu.Lock()
-	d.recordIDs[token] = record.ID
+	d.recordIDs[token] = recordID
 	d.recordIDsMu.Unlock()
 
 	return nil
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
-
-	d.recordIDsMu.Lock()
-	zone, ok := d.zones[token]
-	d.recordIDsMu.Unlock()
-
-	if !ok {
-		return fmt.Errorf("infomaniak: unknown zone for '%s' '%s'", info.EffectiveFQDN, token)
-	}
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
 	d.recordIDsMu.Lock()
 	recordID, ok := d.recordIDs[token]
 	d.recordIDsMu.Unlock()
 
 	if !ok {
-		return fmt.Errorf("infomaniak: unknown record ID for '%s' '%s'", info.EffectiveFQDN, token)
+		return fmt.Errorf("infomaniak: unknown record ID for '%s'", info.EffectiveFQDN)
 	}
 
-	err := d.client.DeleteRecord(ctx, zone, recordID)
-	if err != nil {
-		return fmt.Errorf("infomaniak: delete record: %w", err)
+	d.domainIDsMu.Lock()
+	domainID, ok := d.domainIDs[token]
+	d.domainIDsMu.Unlock()
+
+	if !ok {
+		return fmt.Errorf("infomaniak: unknown domain ID for '%s'", info.EffectiveFQDN)
 	}
+
+	err := d.client.DeleteDNSRecord(context.Background(), domainID, recordID)
+	if err != nil {
+		return fmt.Errorf("infomaniak: could not delete record %q: %w", dns01.UnFqdn(info.EffectiveFQDN), err)
+	}
+
+	// Delete record ID from map
+	d.recordIDsMu.Lock()
+	delete(d.recordIDs, token)
+	d.recordIDsMu.Unlock()
+
+	// Delete domain ID from map
+	d.domainIDsMu.Lock()
+	delete(d.domainIDs, token)
+	d.domainIDsMu.Unlock()
 
 	return nil
 }
@@ -179,19 +195,4 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 // Adjusting here to cope with spikes in propagation times.
 func (d *DNSProvider) Timeout() (timeout, interval time.Duration) {
 	return d.config.PropagationTimeout, d.config.PollingInterval
-}
-
-func (d *DNSProvider) findZone(ctx context.Context, fdqn string) (string, error) {
-	for n := range dns01.UnFqdnDomainsSeq(fdqn) {
-		exists, err := d.client.ZoneExists(ctx, n)
-		if err != nil {
-			return "", fmt.Errorf("check zone (%s): %w", n, err)
-		}
-
-		if exists {
-			return n, nil
-		}
-	}
-
-	return "", fmt.Errorf("zone not found for domain: %s", fdqn)
 }

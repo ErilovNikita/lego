@@ -10,10 +10,13 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/go-acme/lego/v5/internal/errutils"
+	"github.com/go-acme/lego/v4/providers/dns/internal/errutils"
 )
 
-const apiBaseURL = "https://api.nic.ru/dns-master"
+const (
+	apiBaseURL = "https://api.nic.ru/dns-master"
+	tokenURL   = "https://api.nic.ru/oauth/token"
+)
 
 const successStatus = "success"
 
@@ -225,8 +228,6 @@ func newXMLRequest(ctx context.Context, method string, endpoint *url.URL, payloa
 
 		encoder := xml.NewEncoder(body)
 		encoder.Indent("", "  ")
-
-		defer encoder.Close()
 
 		err := encoder.Encode(payload)
 		if err != nil {

@@ -1,8 +1,0 @@
-{
-  "success": false,
-  "error": {
-    "code": 2900,
-    "type": "missing_email",
-    "info": null
-  }
-}

@@ -1,10 +1,10 @@
-.PHONY: clean checks test build image e2e
+.PHONY: clean checks test build image e2e fmt
 
 export GO111MODULE=on
 export CGO_ENABLED=0
 
 LEGO_IMAGE := goacme/lego
-MAIN_DIRECTORY := .
+MAIN_DIRECTORY := ./cmd/lego/
 
 BIN_OUTPUT := $(if $(filter $(shell go env GOOS), windows), dist/lego.exe, dist/lego)
 
@@ -12,7 +12,7 @@ TAG_NAME := $(shell git tag -l --contains HEAD)
 SHA := $(shell git rev-parse HEAD)
 VERSION := $(if $(TAG_NAME),$(TAG_NAME),$(SHA))
 
-default: clean generate checks test build
+default: clean generate-dns checks test build
 
 clean:
 	@echo BIN_OUTPUT: ${BIN_OUTPUT}
@@ -39,50 +39,42 @@ checks:
 .PHONY: patch minor major detach
 
 patch:
-	go run ./internal/generators/releaser/ release -m patch
+	go run ./internal/releaser/ release -m patch
 
 minor:
-	go run ./internal/generators/releaser/ release -m minor
+	go run ./internal/releaser/ release -m minor
 
 major:
-	go run ./internal/generators/releaser/ release -m major
+	go run ./internal/releaser/ release -m major
 
 detach:
-	go run ./internal/generators/releaser/ detach
+	go run ./internal/releaser/ detach
 
 # Docs
 .PHONY: docs-build docs-serve docs-themes
 
-docs-build: generate
+docs-build: generate-dns
 	@make -C ./docs build
 
-docs-serve: generate
+docs-serve: generate-dns
 	@make -C ./docs serve
 
 docs-themes:
 	@make -C ./docs hugo-themes
 
 # DNS Documentation
-.PHONY: generate validate-doc
+.PHONY: generate-dns validate-doc
 
-generate:
+generate-dns:
 	go generate ./...
 
-validate-doc: generate
-validate-doc: DOC_DIRECTORIES := ./docs/ ./zz_gen_version.go
+validate-doc: generate-dns
+validate-doc: DOC_DIRECTORIES := ./docs/ ./cmd/
 validate-doc:
 	@if git diff --exit-code --quiet $(DOC_DIRECTORIES) 2>/dev/null; then \
 		echo 'All documentation changes are done the right way.'; \
 	else \
-		echo 'The documentation must be regenerated, please use `make generate`.'; \
+		echo 'The documentation must be regenerated, please use `make generate-dns`.'; \
 		git status --porcelain -- $(DOC_DIRECTORIES) 2>/dev/null; \
 		exit 2; \
 	fi
-
-# Dependencies management
-# https://github.com/ldez/modupwiz/
-.PHONY: modupwiz-prepare
-
-modupwiz-prepare:
-	modupwiz -path=bump.sh template -template='.github/modupwiz/bump.sh.tmpl'
-	modupwiz -path=bump.md template -template='.github/modupwiz/bump.md.tmpl'

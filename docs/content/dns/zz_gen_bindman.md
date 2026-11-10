@@ -27,7 +27,7 @@ Here is an example bash command using the Bindman provider:
 
 ```bash
 BINDMAN_MANAGER_ADDRESS=<your bindman manager address> \
-lego run --dns bindman -d '*.example.com' -d example.com
+lego --dns bindman -d '*.example.com' -d example.com run
 ```
 
 

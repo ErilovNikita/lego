@@ -29,7 +29,7 @@ Here is an example bash command using the VinylDNS provider:
 VINYLDNS_ACCESS_KEY=xxxxxx \
 VINYLDNS_SECRET_KEY=yyyyy \
 VINYLDNS_HOST=https://api.vinyldns.example.org:9443 \
-lego run --dns vinyldns -d '*.example.com' -d example.com
+lego --dns vinyldns -d '*.example.com' -d example.com run
 ```
 
 

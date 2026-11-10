@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/internal/errutils"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/providers/dns/internal/errutils"
 )
 
 const defaultBaseURL = "https://api.ukfast.io/safedns/v1"
@@ -23,7 +23,7 @@ const authorizationHeader = "Authorization"
 type Client struct {
 	authToken string
 
-	BaseURL    *url.URL
+	baseURL    *url.URL
 	HTTPClient *http.Client
 }
 
@@ -33,14 +33,14 @@ func NewClient(authToken string) *Client {
 
 	return &Client{
 		authToken:  authToken,
-		BaseURL:    baseURL,
+		baseURL:    baseURL,
 		HTTPClient: &http.Client{Timeout: 5 * time.Second},
 	}
 }
 
 // AddRecord adds a DNS record.
 func (c *Client) AddRecord(ctx context.Context, zone string, record Record) (*AddRecordResponse, error) {
-	endpoint := c.BaseURL.JoinPath("zones", dns01.UnFqdn(zone), "records")
+	endpoint := c.baseURL.JoinPath("zones", dns01.UnFqdn(zone), "records")
 
 	req, err := newJSONRequest(ctx, http.MethodPost, endpoint, record)
 	if err != nil {
@@ -59,7 +59,7 @@ func (c *Client) AddRecord(ctx context.Context, zone string, record Record) (*Ad
 
 // RemoveRecord removes a DNS record.
 func (c *Client) RemoveRecord(ctx context.Context, zone string, recordID int) error {
-	endpoint := c.BaseURL.JoinPath("zones", dns01.UnFqdn(zone), "records", strconv.Itoa(recordID))
+	endpoint := c.baseURL.JoinPath("zones", dns01.UnFqdn(zone), "records", strconv.Itoa(recordID))
 
 	req, err := newJSONRequest(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {

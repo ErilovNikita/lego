@@ -1,11 +1,12 @@
 package internal
 
 import (
+	"encoding/json"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,8 +23,7 @@ func TestClient_ListZoneConfigs(t *testing.T) {
 	client := servermock.NewBuilder[*Client](setupClient).
 		Route("POST /zoneConfigsFind",
 			servermock.ResponseFromFixture("zoneConfigsFind.json"),
-			servermock.CheckRequestJSONBodyFromFixture("zoneConfigsFind-request.json"),
-		).
+			servermock.CheckRequestJSONBodyFromFixture("zoneConfigsFind-request.json")).
 		Build(t)
 
 	zonesFind := ZoneConfigsFindRequest{
@@ -44,8 +44,8 @@ func TestClient_ListZoneConfigs(t *testing.T) {
 		Data: []ZoneConfig{{
 			ID:                    "123",
 			AccountID:             "456",
-			Status:                "active",
-			Name:                  "example.com",
+			Status:                "s",
+			Name:                  "n",
 			NameUnicode:           "u",
 			MasterIP:              "m",
 			Type:                  "t",
@@ -61,6 +61,7 @@ func TestClient_ListZoneConfigs(t *testing.T) {
 				TTL:         4,
 				NegativeTTL: 5,
 			},
+			TemplateValues: json.RawMessage(nil),
 		}},
 	}
 
@@ -70,8 +71,7 @@ func TestClient_ListZoneConfigs(t *testing.T) {
 func TestClient_ListZoneConfigs_error(t *testing.T) {
 	client := servermock.NewBuilder[*Client](setupClient).
 		Route("POST /zoneConfigsFind",
-			servermock.ResponseFromFixture("zoneConfigsFind_error.json"),
-		).
+			servermock.ResponseFromFixture("zoneConfigsFind_error.json")).
 		Build(t)
 
 	zonesFind := ZoneConfigsFindRequest{
@@ -88,16 +88,15 @@ func TestClient_UpdateZone(t *testing.T) {
 	client := servermock.NewBuilder[*Client](setupClient).
 		Route("POST /zoneUpdate",
 			servermock.ResponseFromFixture("zoneUpdate.json"),
-			servermock.CheckRequestJSONBodyFromFixture("zoneUpdate-request_remove.json"),
-		).
+			servermock.CheckRequestJSONBodyFromFixture("zoneUpdate-request.json")).
 		Build(t)
 
 	request := ZoneUpdateRequest{
 		ZoneConfig: ZoneConfig{
 			ID:                    "123",
 			AccountID:             "456",
-			Status:                "active",
-			Name:                  "example.com",
+			Status:                "s",
+			Name:                  "n",
 			NameUnicode:           "u",
 			MasterIP:              "m",
 			Type:                  "t",
@@ -117,7 +116,7 @@ func TestClient_UpdateZone(t *testing.T) {
 		RecordsToDelete: []DNSRecord{{
 			Type:    "TXT",
 			Name:    "_acme-challenge.example.com",
-			Content: `"ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY"`,
+			Content: `"txt"`,
 		}},
 	}
 
@@ -129,9 +128,9 @@ func TestClient_UpdateZone(t *testing.T) {
 			ID:               "123",
 			ZoneID:           "456",
 			RecordTemplateID: "789",
-			Name:             "_acme-challenge.example.com",
+			Name:             "n",
 			Type:             "TXT",
-			Content:          `"ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY"`,
+			Content:          "txt",
 			TTL:              120,
 			Priority:         5,
 			LastChangeDate:   "d",
@@ -165,8 +164,7 @@ func TestClient_UpdateZone(t *testing.T) {
 func TestClient_UpdateZone_error(t *testing.T) {
 	client := servermock.NewBuilder[*Client](setupClient).
 		Route("POST /zoneUpdate",
-			servermock.ResponseFromFixture("zoneUpdate_error.json"),
-		).
+			servermock.ResponseFromFixture("zoneUpdate_error.json")).
 		Build(t)
 
 	request := ZoneUpdateRequest{

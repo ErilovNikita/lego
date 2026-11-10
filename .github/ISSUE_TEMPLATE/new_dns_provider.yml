@@ -1,7 +1,7 @@
 name: 🧩 New DNS provider support
 description: Request for the support of a new DNS provider.
 title: "Support for provider: <put the name of your provider>"
-labels: ['need-triage', enhancement, new-provider]
+labels: [enhancement, new-provider]
 body:
   - type: checkboxes
     id: terms
@@ -10,7 +10,7 @@ body:
       options:
         - label: Yes, I've searched for similar issues on GitHub and didn't find any.
           required: true
-        - label: Yes, the DNS provider has a publicly documented API.
+        - label: Yes, the DNS provider has a documented API.
           required: true
         - label: Yes, I know that the lego maintainers don't have an account in all DNS providers in the world.
           required: true
@@ -30,7 +30,9 @@ body:
     attributes:
       label: Implementation
       options:
-        - label: Yes, I can test an implementation with the help of the maintainers.
+        - label: Yes, I'm able to create a pull request and be able to maintain the implementation.
+          required: false
+        - label: Yes, I can test an implementation with the help of the maintainers if someone creates a pull request.
           required: false
 
   - type: input
@@ -86,15 +88,11 @@ body:
     id: profile
     attributes:
       label: Who are you?
-      # This is required because of a bug in Issue Forms:
-      # The first option is always selected unless you are using the "multiple" attribute.
-      multiple: true
       options:
-        - Customer of this DNS provider
-        - Employee of this DNS provider
-        - Owner of this DNS provider
-        - Employee of an ACME CA
-        - Owner of an ACME CA
+        - I don't know
+        - A customer of this DNS provider
+        - An employee of this DNS provider
+        - An employee of an ACME CA
         - Other (please explain)
     validations:
       required: true
@@ -117,9 +115,9 @@ body:
   - type: checkboxes
     id: value-affirmation
     attributes:
-      label: 🌱 Supporting the Maintainers
+      label: 🌱 Supporting the Maintainer
       options:
-        - label: "Yes, I find this project useful, and I appreciate the work done by the maintainers."
+        - label: "Yes, I find this project useful, and it has saved me time in my workflow/business."
           required: false
         - label: "Yes, I have [starred](https://github.com/go-acme/lego) this repository to help others find it."
           required: false
@@ -134,9 +132,9 @@ body:
         [Support Project Longevity →](https://donate.ldez.dev)
 
   - type: checkboxes
-    id: confirmation
+    id: validation
     attributes:
-      label: Confirmation
+      label: Validation
       options:
-        - label: Yes, I've included all the information above (links, notes, etc.).
+        - label: Yes, I've included all the information above (version, usage, etc.).
           required: true

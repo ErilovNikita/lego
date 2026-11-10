@@ -9,11 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/platform/env"
-	"github.com/go-acme/lego/v5/providers/dns/bluecatv2/internal"
-	"github.com/go-acme/lego/v5/providers/dns/internal/clientdebug"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/bluecatv2/internal"
+	"github.com/go-acme/lego/v4/providers/dns/internal/clientdebug"
 )
 
 // Environment variables names.
@@ -32,8 +31,6 @@ const (
 	EnvPollingInterval    = envNamespace + "POLLING_INTERVAL"
 	EnvHTTPTimeout        = envNamespace + "HTTP_TIMEOUT"
 )
-
-var _ challenge.ProviderTimeout = (*DNSProvider)(nil)
 
 // Config is used to configure the creation of the DNSProvider.
 type Config struct {
@@ -129,15 +126,15 @@ func NewDNSProviderConfig(config *Config) (*DNSProvider, error) {
 }
 
 // Present creates a TXT record using the specified parameters.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	ctxAuth, err := d.client.CreateAuthenticatedContext(ctx)
+	ctx, err := d.client.CreateAuthenticatedContext(context.Background())
 	if err != nil {
 		return fmt.Errorf("bluecatv2: %w", err)
 	}
 
-	zone, err := d.findZone(ctxAuth, info.EffectiveFQDN)
+	zone, err := d.findZone(ctx, info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("bluecatv2: %w", err)
 	}
@@ -157,7 +154,7 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 		RecordType: "TXT",
 	}
 
-	newRecord, err := d.client.CreateZoneResourceRecord(ctxAuth, zone.ID, record)
+	newRecord, err := d.client.CreateZoneResourceRecord(ctx, zone.ID, record)
 	if err != nil {
 		return fmt.Errorf("bluecatv2: create resource record: %w", err)
 	}
@@ -171,7 +168,7 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 		return nil
 	}
 
-	_, err = d.client.CreateZoneDeployment(ctxAuth, zone.ID)
+	_, err = d.client.CreateZoneDeployment(ctx, zone.ID)
 	if err != nil {
 		return fmt.Errorf("bluecat: deploy zone: %w", err)
 	}
@@ -180,8 +177,8 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
 	d.recordIDsMu.Lock()
 	recordID, recordOK := d.recordIDs[token]
@@ -196,12 +193,12 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 		return fmt.Errorf("bluecatv2: unknown zone ID for '%s' '%s'", info.EffectiveFQDN, token)
 	}
 
-	ctxAuth, err := d.client.CreateAuthenticatedContext(ctx)
+	ctx, err := d.client.CreateAuthenticatedContext(context.Background())
 	if err != nil {
 		return fmt.Errorf("bluecatv2: %w", err)
 	}
 
-	err = d.client.DeleteResourceRecord(ctxAuth, recordID)
+	err = d.client.DeleteResourceRecord(ctx, recordID)
 	if err != nil {
 		return fmt.Errorf("bluecatv2: delete resource record: %w", err)
 	}
@@ -210,7 +207,7 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 		return nil
 	}
 
-	_, err = d.client.CreateZoneDeployment(ctxAuth, zoneID)
+	_, err = d.client.CreateZoneDeployment(ctx, zoneID)
 	if err != nil {
 		return fmt.Errorf("bluecat: deploy zone: %w", err)
 	}

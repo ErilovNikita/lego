@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/go-acme/lego/v5/challenge/http01"
+	"github.com/go-acme/lego/v4/challenge/http01"
 )
 
 // HTTPProvider implements ChallengeProvider for `http-01` challenge.
@@ -43,7 +43,9 @@ func NewHTTPProvider(bucket string) (*HTTPProvider, error) {
 }
 
 // Present makes the token available at `HTTP01ChallengePath(token)` by creating a file in the given s3 bucket.
-func (s *HTTPProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
+func (s *HTTPProvider) Present(domain, token, keyAuth string) error {
+	ctx := context.Background()
+
 	params := &s3.PutObjectInput{
 		ACL:    "public-read",
 		Bucket: aws.String(s.bucket),
@@ -60,7 +62,9 @@ func (s *HTTPProvider) Present(ctx context.Context, domain, token, keyAuth strin
 }
 
 // CleanUp removes the file created for the challenge.
-func (s *HTTPProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
+func (s *HTTPProvider) CleanUp(domain, token, keyAuth string) error {
+	ctx := context.Background()
+
 	params := &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(strings.Trim(http01.ChallengePath(token), "/")),

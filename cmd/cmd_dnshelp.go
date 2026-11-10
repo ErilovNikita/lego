@@ -1,13 +1,12 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"strings"
 	"text/tabwriter"
 
-	"github.com/urfave/cli/v3"
+	"github.com/urfave/cli/v2"
 )
 
 const flgCode = "code"
@@ -17,24 +16,20 @@ func createDNSHelp() *cli.Command {
 		Name:   "dnshelp",
 		Usage:  "Shows additional help for the '--dns' global option",
 		Action: dnsHelp,
-		Flags:  createDNSHelpFlags(),
-	}
-}
-
-func createDNSHelpFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:    flgCode,
-			Aliases: []string{"c"},
-			Usage:   fmt.Sprintf("DNS code: %s", allDNSCodes()),
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    flgCode,
+				Aliases: []string{"c"},
+				Usage:   fmt.Sprintf("DNS code: %s", allDNSCodes()),
+			},
 		},
 	}
 }
 
-func dnsHelp(_ context.Context, cmd *cli.Command) error {
-	code := cmd.String(flgCode)
+func dnsHelp(ctx *cli.Context) error {
+	code := ctx.String(flgCode)
 	if code == "" {
-		w := tabwriter.NewWriter(cmd.Writer, 0, 0, 2, ' ', 0)
+		w := tabwriter.NewWriter(ctx.App.Writer, 0, 0, 2, ' ', 0)
 		ew := &errWriter{w: w}
 
 		ew.writeln(`Credentials for DNS providers must be passed through environment variables.`)
@@ -55,7 +50,7 @@ func dnsHelp(_ context.Context, cmd *cli.Command) error {
 		return w.Flush()
 	}
 
-	return displayDNSHelp(cmd.Writer, strings.ToLower(code))
+	return displayDNSHelp(ctx.App.Writer, strings.ToLower(code))
 }
 
 type errWriter struct {

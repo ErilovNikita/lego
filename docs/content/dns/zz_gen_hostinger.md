@@ -27,7 +27,7 @@ Here is an example bash command using the Hostinger provider:
 
 ```bash
 HOSTINGER_API_TOKEN="xxxxxxxxxxxxxxxxxxxxx" \
-lego run --dns hostinger -d '*.example.com' -d example.com
+lego --dns hostinger -d '*.example.com' -d example.com run
 ```
 
 

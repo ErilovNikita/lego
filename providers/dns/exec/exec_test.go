@@ -2,26 +2,25 @@ package exec
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/go-acme/lego/v5/log"
+	"github.com/go-acme/lego/v4/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDNSProvider_Present(t *testing.T) {
-	backupLogger := log.Default()
+	backupLogger := log.Logger
 
 	defer func() {
-		log.SetDefault(backupLogger)
+		log.Logger = backupLogger
 	}()
 
-	logHandler := &LogHandler{}
-	log.SetDefault(slog.New(logHandler))
+	logRecorder := &LogRecorder{}
+	log.Logger = logRecorder
 
 	type expected struct {
 		args  string
@@ -65,8 +64,8 @@ func TestDNSProvider_Present(t *testing.T) {
 
 	var message string
 
-	logHandler.On("Handle", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		message = args.Get(1).(slog.Record).Message
+	logRecorder.On("Println", mock.Anything).Run(func(args mock.Arguments) {
+		message = args.String(0)
 		fmt.Fprintln(os.Stdout, "XXX", message)
 	})
 
@@ -77,7 +76,7 @@ func TestDNSProvider_Present(t *testing.T) {
 			provider, err := NewDNSProviderConfig(test.config)
 			require.NoError(t, err)
 
-			err = provider.Present(t.Context(), "domain", "token", "keyAuth")
+			err = provider.Present("domain", "token", "keyAuth")
 			if test.expected.error {
 				require.Error(t, err)
 			} else {
@@ -89,14 +88,14 @@ func TestDNSProvider_Present(t *testing.T) {
 }
 
 func TestDNSProvider_CleanUp(t *testing.T) {
-	backupLogger := log.Default()
+	backupLogger := log.Logger
 
 	defer func() {
-		log.SetDefault(backupLogger)
+		log.Logger = backupLogger
 	}()
 
-	logHandler := &LogHandler{}
-	log.SetDefault(slog.New(logHandler))
+	logRecorder := &LogRecorder{}
+	log.Logger = logRecorder
 
 	type expected struct {
 		args  string
@@ -140,8 +139,8 @@ func TestDNSProvider_CleanUp(t *testing.T) {
 
 	var message string
 
-	logHandler.On("Handle", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		message = args.Get(1).(slog.Record).Message
+	logRecorder.On("Println", mock.Anything).Run(func(args mock.Arguments) {
+		message = args.String(0)
 		fmt.Fprintln(os.Stdout, "XXX", message)
 	})
 
@@ -152,7 +151,7 @@ func TestDNSProvider_CleanUp(t *testing.T) {
 			provider, err := NewDNSProviderConfig(test.config)
 			require.NoError(t, err)
 
-			err = provider.CleanUp(t.Context(), "domain", "token", "keyAuth")
+			err = provider.CleanUp("domain", "token", "keyAuth")
 			if test.expected.error {
 				require.Error(t, err)
 			} else {

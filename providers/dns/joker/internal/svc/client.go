@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-acme/lego/v5/internal/errutils"
+	"github.com/go-acme/lego/v4/providers/dns/internal/errutils"
 	querystring "github.com/google/go-querystring/query"
 )
 
@@ -68,8 +68,6 @@ func (c *Client) SendRequest(ctx context.Context, zone, label, value string) err
 	if err != nil {
 		return errutils.NewHTTPDoError(req, err)
 	}
-
-	defer func() { _ = resp.Body.Close() }()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {

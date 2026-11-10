@@ -27,7 +27,7 @@ Here is an example bash command using the IPv64 provider:
 
 ```bash
 IPV64_API_KEY=xxxxxx \
-lego run --dns ipv64 -d '*.example.com' -d example.com
+lego --dns ipv64 -d '*.example.com' -d example.com run
 ```
 
 

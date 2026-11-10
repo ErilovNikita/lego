@@ -1,7 +1,6 @@
 package sender
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,8 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/go-acme/lego/v5/acme"
-	"github.com/go-acme/lego/v5/internal/errutils"
+	"github.com/go-acme/lego/v4/acme"
 )
 
 type RequestOption func(*http.Request) error
@@ -33,14 +31,14 @@ func NewDoer(client *http.Client, userAgent string) *Doer {
 
 	return &Doer{
 		httpClient: client,
-		userAgent:  formatUserAgent(userAgent),
+		userAgent:  userAgent,
 	}
 }
 
 // Get performs a GET request with a proper User-Agent string.
 // If "response" is not provided, callers should close resp.Body when done reading from it.
-func (d *Doer) Get(ctx context.Context, url string, response any) (*http.Response, error) {
-	req, err := d.newRequest(ctx, http.MethodGet, url, nil)
+func (d *Doer) Get(url string, response any) (*http.Response, error) {
+	req, err := d.newRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +48,8 @@ func (d *Doer) Get(ctx context.Context, url string, response any) (*http.Respons
 
 // Head performs a HEAD request with a proper User-Agent string.
 // The response body (resp.Body) is already closed when this function returns.
-func (d *Doer) Head(ctx context.Context, url string) (*http.Response, error) {
-	req, err := d.newRequest(ctx, http.MethodHead, url, nil)
+func (d *Doer) Head(url string) (*http.Response, error) {
+	req, err := d.newRequest(http.MethodHead, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +59,8 @@ func (d *Doer) Head(ctx context.Context, url string) (*http.Response, error) {
 
 // Post performs a POST request with a proper User-Agent string.
 // If "response" is not provided, callers should close resp.Body when done reading from it.
-func (d *Doer) Post(ctx context.Context, url string, body io.Reader, bodyType string, response any) (*http.Response, error) {
-	req, err := d.newRequest(ctx, http.MethodPost, url, body, contentType(bodyType))
+func (d *Doer) Post(url string, body io.Reader, bodyType string, response any) (*http.Response, error) {
+	req, err := d.newRequest(http.MethodPost, url, body, contentType(bodyType))
 	if err != nil {
 		return nil, err
 	}
@@ -70,13 +68,13 @@ func (d *Doer) Post(ctx context.Context, url string, body io.Reader, bodyType st
 	return d.do(req, response)
 }
 
-func (d *Doer) newRequest(ctx context.Context, method, uri string, body io.Reader, opts ...RequestOption) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, method, uri, body)
+func (d *Doer) newRequest(method, uri string, body io.Reader, opts ...RequestOption) (*http.Request, error) {
+	req, err := http.NewRequest(method, uri, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", d.userAgent)
+	req.Header.Set("User-Agent", d.formatUserAgent())
 
 	for _, opt := range opts {
 		err = opt(req)
@@ -91,7 +89,7 @@ func (d *Doer) newRequest(ctx context.Context, method, uri string, body io.Reade
 func (d *Doer) do(req *http.Request, response any) (*http.Response, error) {
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		return nil, errutils.NewHTTPDoError(req, err)
+		return nil, err
 	}
 
 	if err = checkError(req, resp); err != nil {
@@ -99,16 +97,16 @@ func (d *Doer) do(req *http.Request, response any) (*http.Response, error) {
 	}
 
 	if response != nil {
-		defer func() { _ = resp.Body.Close() }()
-
 		raw, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return resp, errutils.NewReadResponseError(req, resp.StatusCode, err)
+			return resp, err
 		}
+
+		defer resp.Body.Close()
 
 		err = json.Unmarshal(raw, response)
 		if err != nil {
-			return resp, errutils.NewUnmarshalError(req, resp.StatusCode, raw, err)
+			return resp, fmt.Errorf("failed to unmarshal %q to type %T: %w", raw, response, err)
 		}
 	}
 
@@ -116,16 +114,15 @@ func (d *Doer) do(req *http.Request, response any) (*http.Response, error) {
 }
 
 // formatUserAgent builds and returns the User-Agent string to use in requests.
-func formatUserAgent(userAgent string) string {
-	return strings.TrimSpace(fmt.Sprintf("%s %s (%s; %s; %s)", userAgent, ourUserAgent, ourUserAgentComment, runtime.GOOS, runtime.GOARCH))
+func (d *Doer) formatUserAgent() string {
+	ua := fmt.Sprintf("%s %s (%s; %s; %s)", d.userAgent, ourUserAgent, ourUserAgentComment, runtime.GOOS, runtime.GOARCH)
+	return strings.TrimSpace(ua)
 }
 
 func checkError(req *http.Request, resp *http.Response) error {
 	if resp.StatusCode < http.StatusBadRequest {
 		return nil
 	}
-
-	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -148,16 +145,16 @@ func checkError(req *http.Request, resp *http.Response) error {
 
 	// Check for errors we handle specifically
 	switch {
-	case errorDetails.HTTPStatus == http.StatusBadRequest && errorDetails.Type == acme.BadNonceErrorType:
+	case errorDetails.HTTPStatus == http.StatusBadRequest && errorDetails.Type == acme.BadNonceErr:
 		return &acme.NonceError{ProblemDetails: errorDetails}
 
-	case errorDetails.HTTPStatus == http.StatusConflict && errorDetails.Type == acme.AlreadyReplacedErrorType:
+	case errorDetails.HTTPStatus == http.StatusConflict && errorDetails.Type == acme.AlreadyReplacedErr:
 		return &acme.AlreadyReplacedError{ProblemDetails: errorDetails}
 
-	case errorDetails.HTTPStatus == http.StatusTooManyRequests && errorDetails.Type == acme.RateLimitedErrorType:
+	case errorDetails.HTTPStatus == http.StatusTooManyRequests && errorDetails.Type == acme.RateLimitedErr:
 		return &acme.RateLimitedError{
 			ProblemDetails: errorDetails,
-			RetryAfter:     GetRetryAfter(resp),
+			RetryAfter:     resp.Header.Get("Retry-After"),
 		}
 
 	default:

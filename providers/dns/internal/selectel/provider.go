@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/providers/dns/internal/clientdebug"
-	"github.com/go-acme/lego/v5/providers/dns/internal/selectel/internal"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/providers/dns/internal/clientdebug"
+	"github.com/go-acme/lego/v4/providers/dns/internal/selectel/internal"
 )
 
 const MinTTL = 60
@@ -26,6 +26,9 @@ type Config struct {
 	PollingInterval    time.Duration
 	TTL                int
 	HTTPClient         *http.Client
+
+	// TODO(ldez): remove in v5?
+	BaseURL string
 }
 
 // DNSProvider implements the challenge.Provider interface.
@@ -35,7 +38,7 @@ type DNSProvider struct {
 }
 
 // NewDNSProviderConfig return a DNSProvider instance configured for selectel.
-func NewDNSProviderConfig(config *Config, baseURL string) (*DNSProvider, error) {
+func NewDNSProviderConfig(config *Config) (*DNSProvider, error) {
 	if config == nil {
 		return nil, errors.New("the configuration of the DNS provider is nil")
 	}
@@ -56,13 +59,11 @@ func NewDNSProviderConfig(config *Config, baseURL string) (*DNSProvider, error) 
 
 	client.HTTPClient = clientdebug.Wrap(client.HTTPClient)
 
-	if baseURL != "" {
-		var err error
+	var err error
 
-		client.BaseURL, err = url.Parse(baseURL)
-		if err != nil {
-			return nil, err
-		}
+	client.BaseURL, err = url.Parse(config.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("%w", err)
 	}
 
 	return &DNSProvider{config: config, client: client}, nil
@@ -75,8 +76,10 @@ func (d *DNSProvider) Timeout() (timeout, interval time.Duration) {
 }
 
 // Present creates a TXT record to fulfill DNS-01 challenge.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
+
+	ctx := context.Background()
 
 	// TODO(ldez) replace domain by FQDN to follow CNAME.
 	domainObj, err := d.client.GetDomainByName(ctx, domain)
@@ -100,10 +103,12 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 }
 
 // CleanUp removes a TXT record used for DNS-01 challenge.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
 	recordName := dns01.UnFqdn(info.EffectiveFQDN)
+
+	ctx := context.Background()
 
 	// TODO(ldez) replace domain by FQDN to follow CNAME.
 	domainObj, err := d.client.GetDomainByName(ctx, domain)

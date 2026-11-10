@@ -1,9 +1,0 @@
-{
-  "meta": {
-    "invocationId": "95cdcc21-b9c3-4b21-8bd1-b05c34c56147"
-  },
-  "error": {
-    "status": 401,
-    "message": "Authentication Error"
-  }
-}

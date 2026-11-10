@@ -11,10 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/platform/env"
-	"github.com/go-acme/lego/v5/providers/dns/cloudflare/internal"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/log"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/cloudflare/internal"
 )
 
 // Environment variables names.
@@ -153,10 +154,12 @@ func (d *DNSProvider) Timeout() (timeout, interval time.Duration) {
 }
 
 // Present creates a TXT record to fulfill the dns-01 challenge.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	ctx := context.Background()
 
-	authZone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, info.EffectiveFQDN)
+	info := dns01.GetChallengeInfo(domain, keyAuth)
+
+	authZone, err := dns01.FindZoneByFqdn(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("cloudflare: could not find zone for domain %q: %w", domain, err)
 	}
@@ -182,14 +185,18 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 	d.recordIDs[token] = response.ID
 	d.recordIDsMu.Unlock()
 
+	log.Infof("cloudflare: new record for %s, ID %s", domain, response.ID)
+
 	return nil
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
+	ctx := context.Background()
 
-	authZone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, info.EffectiveFQDN)
+	info := dns01.GetChallengeInfo(domain, keyAuth)
+
+	authZone, err := dns01.FindZoneByFqdn(info.EffectiveFQDN)
 	if err != nil {
 		return fmt.Errorf("cloudflare: could not find zone for domain %q: %w", domain, err)
 	}
@@ -210,7 +217,7 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 
 	err = d.client.DeleteDNSRecord(ctx, zoneID, recordID)
 	if err != nil {
-		return fmt.Errorf("cloudflare: failed to delete TXT record: %w", err)
+		log.Printf("cloudflare: failed to delete TXT record: %v", err)
 	}
 
 	// Delete record ID from map

@@ -1,3 +1,4 @@
 {
-  "error": "Unknown DNS record"
+  "status": 404,
+  "message": "Unknown DNS record"
 }

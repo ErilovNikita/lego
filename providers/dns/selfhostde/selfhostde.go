@@ -6,14 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/platform/env"
-	"github.com/go-acme/lego/v5/providers/dns/internal/clientdebug"
-	"github.com/go-acme/lego/v5/providers/dns/selfhostde/internal"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/internal/clientdebug"
+	"github.com/go-acme/lego/v4/providers/dns/selfhostde/internal"
 )
 
 // Environment variables.
@@ -58,14 +59,16 @@ func NewDefaultConfig() *Config {
 	}
 }
 
-func (c *Config) getSeqNext(effectiveDomain, fallback string) (string, error) {
+func (c *Config) getSeqNext(domain string) (string, error) {
+	effectiveDomain := strings.TrimPrefix(domain, "_acme-challenge.")
+
 	c.recordsMappingMu.Lock()
 	defer c.recordsMappingMu.Unlock()
 
 	seq, ok := c.RecordsMapping[effectiveDomain]
 	if !ok {
 		// fallback
-		seq, ok = c.RecordsMapping[fallback]
+		seq, ok = c.RecordsMapping[domain]
 		if !ok {
 			return "", fmt.Errorf("record mapping not found for %q", effectiveDomain)
 		}
@@ -146,18 +149,15 @@ func (d *DNSProvider) Timeout() (timeout, interval time.Duration) {
 }
 
 // Present creates a TXT record to fulfill the dns-01 challenge.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
-	effectiveDomain := dns01.UnFqdn(info.EffectiveDomain())
-	fqdn := dns01.UnFqdn(info.EffectiveFQDN)
-
-	recordID, err := d.config.getSeqNext(effectiveDomain, fqdn)
+	recordID, err := d.config.getSeqNext(dns01.UnFqdn(info.EffectiveFQDN))
 	if err != nil {
 		return fmt.Errorf("selfhostde: %w", err)
 	}
 
-	err = d.client.UpdateTXTRecord(ctx, recordID, info.Value)
+	err = d.client.UpdateTXTRecord(context.Background(), recordID, info.Value)
 	if err != nil {
 		return fmt.Errorf("selfhostde: update DNS TXT record (id=%s): %w", recordID, err)
 	}
@@ -170,8 +170,8 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 }
 
 // CleanUp removes the TXT record previously created.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
 	d.recordIDsMu.Lock()
 	recordID, ok := d.recordIDs[token]
@@ -181,7 +181,7 @@ func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string
 		return fmt.Errorf("selfhostde: unknown record ID for %q", dns01.UnFqdn(info.EffectiveFQDN))
 	}
 
-	err := d.client.UpdateTXTRecord(ctx, recordID, "empty")
+	err := d.client.UpdateTXTRecord(context.Background(), recordID, "empty")
 	if err != nil {
 		return fmt.Errorf("selfhostde: emptied DNS TXT record (id=%s): %w", recordID, err)
 	}

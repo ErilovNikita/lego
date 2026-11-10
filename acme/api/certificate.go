@@ -2,14 +2,12 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
 
-	"github.com/go-acme/lego/v5/acme"
-	"github.com/go-acme/lego/v5/acme/api/internal/sender"
+	"github.com/go-acme/lego/v4/acme"
 )
 
 // maxBodySize is the maximum size of body that we will read.
@@ -19,19 +17,19 @@ type CertificateService service
 
 // Get Returns the certificate and the issuer certificate.
 // 'bundle' is only applied if the issuer is provided by the 'up' link.
-func (c *CertificateService) Get(ctx context.Context, certURL string, bundle bool) (*acme.RawCertificate, error) {
-	cert, _, err := c.get(ctx, certURL, bundle)
+func (c *CertificateService) Get(certURL string, bundle bool) ([]byte, []byte, error) {
+	cert, _, err := c.get(certURL, bundle)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return cert, nil
+	return cert.Cert, cert.Issuer, nil
 }
 
 // GetAll the certificates and the alternate certificates.
 // bundle' is only applied if the issuer is provided by the 'up' link.
-func (c *CertificateService) GetAll(ctx context.Context, certURL string, bundle bool) (map[string]*acme.RawCertificate, error) {
-	cert, headers, err := c.get(ctx, certURL, bundle)
+func (c *CertificateService) GetAll(certURL string, bundle bool) (map[string]*acme.RawCertificate, error) {
+	cert, headers, err := c.get(certURL, bundle)
 	if err != nil {
 		return nil, err
 	}
@@ -40,10 +38,10 @@ func (c *CertificateService) GetAll(ctx context.Context, certURL string, bundle 
 
 	// URLs of "alternate" link relation
 	// - https://www.rfc-editor.org/rfc/rfc8555.html#section-7.4.2
-	alts := sender.GetLinks(headers, "alternate")
+	alts := getLinks(headers, "alternate")
 
 	for _, alt := range alts {
-		altCert, _, err := c.get(ctx, alt, bundle)
+		altCert, _, err := c.get(alt, bundle)
 		if err != nil {
 			return nil, err
 		}
@@ -55,23 +53,21 @@ func (c *CertificateService) GetAll(ctx context.Context, certURL string, bundle 
 }
 
 // Revoke Revokes a certificate.
-func (c *CertificateService) Revoke(ctx context.Context, req acme.RevokeCertMessage) error {
-	_, err := c.core.post(ctx, c.core.GetDirectory().RevokeCertURL, req, nil)
+func (c *CertificateService) Revoke(req acme.RevokeCertMessage) error {
+	_, err := c.core.post(c.core.GetDirectory().RevokeCertURL, req, nil)
 	return err
 }
 
 // get Returns the certificate and the "up" link.
-func (c *CertificateService) get(ctx context.Context, certURL string, bundle bool) (*acme.RawCertificate, http.Header, error) {
+func (c *CertificateService) get(certURL string, bundle bool) (*acme.RawCertificate, http.Header, error) {
 	if certURL == "" {
 		return nil, nil, errors.New("certificate[get]: empty URL")
 	}
 
-	resp, err := c.core.postAsGet(ctx, certURL, nil)
+	resp, err := c.core.postAsGet(certURL, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	defer func() { _ = resp.Body.Close() }()
 
 	data, err := io.ReadAll(http.MaxBytesReader(nil, resp.Body, maxBodySize))
 	if err != nil {

@@ -28,7 +28,7 @@ Here is an example bash command using the JD Cloud provider:
 ```bash
 JDCLOUD_ACCESS_KEY_ID="xxx" \
 JDCLOUD_ACCESS_KEY_SECRET="yyy" \
-lego run --dns jdcloud -d '*.example.com' -d example.com
+lego --dns jdcloud -d '*.example.com' -d example.com run
 ```
 
 

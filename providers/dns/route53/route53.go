@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand/v2"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -18,11 +18,11 @@ import (
 	awstypes "github.com/aws/aws-sdk-go-v2/service/route53/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/cenkalti/backoff/v5"
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/internal/ptr"
-	"github.com/go-acme/lego/v5/internal/wait"
-	"github.com/go-acme/lego/v5/platform/env"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/platform/wait"
+	"github.com/go-acme/lego/v4/providers/dns/internal/ptr"
 )
 
 // Environment variables names.
@@ -138,8 +138,9 @@ func (d *DNSProvider) Timeout() (timeout, interval time.Duration) {
 }
 
 // Present creates a TXT record using the specified parameters.
-func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, token, keyAuth string) error {
+	ctx := context.Background()
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
 	hostedZoneID, err := d.getHostedZoneID(ctx, info.EffectiveFQDN)
 	if err != nil {
@@ -181,8 +182,9 @@ func (d *DNSProvider) Present(ctx context.Context, domain, token, keyAuth string
 }
 
 // CleanUp removes the TXT record matching the specified parameters.
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, token, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) CleanUp(domain, token, keyAuth string) error {
+	ctx := context.Background()
+	info := dns01.GetChallengeInfo(domain, keyAuth)
 
 	hostedZoneID, err := d.getHostedZoneID(ctx, info.EffectiveFQDN)
 	if err != nil {
@@ -303,7 +305,7 @@ func (d *DNSProvider) getHostedZoneID(ctx context.Context, fqdn string) (string,
 		return d.config.HostedZoneID, nil
 	}
 
-	authZone, err := dns01.DefaultClient().FindZoneByFqdn(ctx, fqdn)
+	authZone, err := dns01.FindZoneByFqdn(fqdn)
 	if err != nil {
 		return "", fmt.Errorf("could not find zone for FQDN %q: %w", fqdn, err)
 	}
@@ -354,7 +356,7 @@ func createAWSConfig(ctx context.Context, config *Config) (aws.Config, error) {
 				options.Backoff = retry.BackoffDelayerFunc(func(attempt int, err error) (time.Duration, error) {
 					retryCount := min(attempt, 7)
 
-					delay := (1 << uint(retryCount)) * (rand.IntN(50) + 200)
+					delay := (1 << uint(retryCount)) * (rand.Intn(50) + 200)
 
 					return time.Duration(delay) * time.Millisecond, nil
 				})

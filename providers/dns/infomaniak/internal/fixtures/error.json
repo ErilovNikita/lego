@@ -1,7 +1,0 @@
-{
-  "result": "error",
-  "error": {
-    "code": "object_not_found",
-    "description": "Object not found"
-  }
-}

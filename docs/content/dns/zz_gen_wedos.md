@@ -28,7 +28,7 @@ Here is an example bash command using the WEDOS provider:
 ```bash
 WEDOS_USERNAME=xxxxxxxx \
 WEDOS_WAPI_PASSWORD=xxxxxxxx \
-lego run --dns wedos -d '*.example.com' -d example.com
+lego --dns wedos -d '*.example.com' -d example.com run
 ```
 
 

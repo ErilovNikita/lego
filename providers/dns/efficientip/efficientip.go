@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-acme/lego/v5/challenge"
-	"github.com/go-acme/lego/v5/challenge/dns01"
-	"github.com/go-acme/lego/v5/platform/env"
-	"github.com/go-acme/lego/v5/providers/dns/efficientip/internal"
-	"github.com/go-acme/lego/v5/providers/dns/internal/clientdebug"
+	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/platform/config/env"
+	"github.com/go-acme/lego/v4/providers/dns/efficientip/internal"
+	"github.com/go-acme/lego/v4/providers/dns/internal/clientdebug"
 )
 
 // Environment variables names.
@@ -122,8 +122,10 @@ func NewDNSProviderConfig(config *Config) (*DNSProvider, error) {
 	return &DNSProvider{config: config, client: client}, nil
 }
 
-func (d *DNSProvider) Present(ctx context.Context, domain, _, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) Present(domain, _, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
+
+	ctx := context.Background()
 
 	r := internal.ResourceRecord{
 		RRName:      dns01.UnFqdn(info.EffectiveFQDN),
@@ -141,8 +143,10 @@ func (d *DNSProvider) Present(ctx context.Context, domain, _, keyAuth string) er
 	return nil
 }
 
-func (d *DNSProvider) CleanUp(ctx context.Context, domain, _, keyAuth string) error {
-	info := dns01.GetChallengeInfo(ctx, domain, keyAuth)
+func (d *DNSProvider) CleanUp(domain, _, keyAuth string) error {
+	info := dns01.GetChallengeInfo(domain, keyAuth)
+
+	ctx := context.Background()
 
 	params := internal.DeleteInputParameters{
 		RRName:      dns01.UnFqdn(info.EffectiveFQDN),

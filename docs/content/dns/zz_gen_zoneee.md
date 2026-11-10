@@ -28,7 +28,7 @@ Here is an example bash command using the Zone.ee provider:
 ```bash
 ZONEEE_API_USER=xxxxx \
 ZONEEE_API_KEY=yyyyy \
-lego run --dns zoneee -d '*.example.com' -d example.com
+lego --dns zoneee -d '*.example.com' -d example.com run
 ```
 
 

@@ -27,7 +27,7 @@ Here is an example bash command using the ANS SafeDNS provider:
 
 ```bash
 SAFEDNS_AUTH_TOKEN=xxxxxx \
-lego run --dns safedns -d '*.example.com' -d example.com
+lego --dns safedns -d '*.example.com' -d example.com run
 ```
 
 

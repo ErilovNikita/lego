@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,17 +20,14 @@ func mockBuilder() *servermock.Builder[*Client] {
 
 			return client, nil
 		},
-		servermock.CheckHeader().
-			WithJSONHeaders().
+		servermock.CheckHeader().WithJSONHeaders().
 			WithBasicAuth("user", "secret"),
 	)
 }
 
 func TestClient_GetTxtRecords(t *testing.T) {
 	client := mockBuilder().
-		Route("GET /dns/example.com/txt",
-			servermock.ResponseFromFixture("get_txt_records.json"),
-		).
+		Route("GET /dns/example.com/txt", servermock.ResponseFromFixture("get-txt-records.json")).
 		Build(t)
 
 	records, err := client.GetTxtRecords(t.Context(), "example.com")
@@ -46,9 +43,9 @@ func TestClient_GetTxtRecords(t *testing.T) {
 func TestClient_AddTxtRecord(t *testing.T) {
 	client := mockBuilder().
 		Route("POST /dns/example.com/txt",
-			servermock.ResponseFromFixture("create_txt_record.json").
+			servermock.ResponseFromFixture("create-txt-record.json").
 				WithStatusCode(http.StatusCreated),
-			servermock.CheckRequestJSONBodyFromFixture("create_txt_record-request.json")).
+			servermock.CheckRequestJSONBody(`{"name":"prefix.example.com","destination":"server.example.com"}`)).
 		Build(t)
 
 	records, err := client.AddTxtRecord(t.Context(), "example.com", TXTRecord{Name: "prefix.example.com", Destination: "server.example.com"})

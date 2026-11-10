@@ -28,7 +28,7 @@ Here is an example bash command using the MythicBeasts provider:
 ```bash
 MYTHICBEASTS_USERNAME=myuser \
 MYTHICBEASTS_PASSWORD=mypass \
-lego run --dns mythicbeasts -d '*.example.com' -d example.com
+lego --dns mythicbeasts -d '*.example.com' -d example.com run
 ```
 
 

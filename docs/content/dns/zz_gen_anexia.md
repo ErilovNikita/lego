@@ -27,7 +27,7 @@ Here is an example bash command using the Anexia CloudDNS provider:
 
 ```bash
 ANEXIA_TOKEN=xxx \
-lego run --dns anexia -d '*.example.com' -d example.com
+lego --dns anexia -d '*.example.com' -d example.com run
 ```
 
 

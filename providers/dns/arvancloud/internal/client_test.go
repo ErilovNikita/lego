@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/go-acme/lego/v5/internal/tester/servermock"
+	"github.com/go-acme/lego/v4/platform/tester/servermock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,61 +15,58 @@ func mockBuilder(apiKey string) *servermock.Builder[*Client] {
 	return servermock.NewBuilder[*Client](
 		func(server *httptest.Server) (*Client, error) {
 			client := NewClient(apiKey)
-			client.BaseURL, _ = url.Parse(server.URL)
+			client.baseURL, _ = url.Parse(server.URL)
 			client.HTTPClient = server.Client()
 
 			return client, nil
 		},
-		servermock.CheckHeader().
-			WithJSONHeaders().
-			WithAuthorization(apiKey),
-	)
+		servermock.CheckHeader().WithJSONHeaders().
+			WithAuthorization(apiKey))
 }
 
 func TestClient_GetTxtRecord(t *testing.T) {
-	client := mockBuilder("myKeyA").
-		Route("GET /cdn/4.0/domains/example.com/dns-records",
+	const apiKey = "myKeyA"
+
+	const domain = "example.com"
+
+	client := mockBuilder(apiKey).
+		Route("GET /cdn/4.0/domains/"+domain+"/dns-records",
 			servermock.ResponseFromFixture("get_txt_record.json"),
-			servermock.CheckQueryParameter().
-				With("search", "acme-challenge"),
-		).
+			servermock.CheckQueryParameter().With("search", "acme-challenge")).
 		Build(t)
 
-	_, err := client.GetTxtRecord(t.Context(), "example.com", "_acme-challenge", "txtxtxt")
+	_, err := client.GetTxtRecord(t.Context(), domain, "_acme-challenge", "txtxtxt")
 	require.NoError(t, err)
 }
 
 func TestClient_CreateRecord(t *testing.T) {
-	client := mockBuilder("myKeyB").
-		Route("POST /cdn/4.0/domains/example.com/dns-records",
+	const apiKey = "myKeyB"
+
+	const domain = "example.com"
+
+	client := mockBuilder(apiKey).
+		Route("POST /cdn/4.0/domains/"+domain+"/dns-records",
 			servermock.ResponseFromFixture("create_txt_record.json").
 				WithStatusCode(http.StatusCreated),
-			servermock.CheckRequestJSONBodyFromFixture("create_record-request.json"),
-		).
+			servermock.CheckRequestJSONBodyFromFixture("create_record-request.json")).
 		Build(t)
 
 	record := DNSRecord{
-		Name:          "_acme-challenge",
-		Type:          "txt",
-		Value:         &TXTRecordValue{Text: "ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY"},
-		TTL:           600,
-		UpstreamHTTPS: "default",
-		IPFilterMode: &IPFilterMode{
-			Count:     "single",
-			Order:     "none",
-			GeoFilter: "none",
-		},
+		Name:  "_acme-challenge",
+		Type:  "txt",
+		Value: &TXTRecordValue{Text: "txtxtxt"},
+		TTL:   600,
 	}
 
-	newRecord, err := client.CreateRecord(t.Context(), "example.com", record)
+	newRecord, err := client.CreateRecord(t.Context(), domain, record)
 	require.NoError(t, err)
 
 	expected := &DNSRecord{
-		ID:            "fe93c082-70d9-4d53-a121-66928adc40c8",
+		ID:            "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
 		Type:          "txt",
-		Value:         map[string]any{"text": "ADw2sEd82DUgXcQ9hNBZThJs7zVJkR5v9JeSbAb9mZY"},
+		Value:         map[string]any{"text": "txtxtxt"},
 		Name:          "_acme-challenge",
-		TTL:           600,
+		TTL:           120,
 		UpstreamHTTPS: "default",
 		IPFilterMode: &IPFilterMode{
 			Count:     "single",
@@ -82,12 +79,17 @@ func TestClient_CreateRecord(t *testing.T) {
 }
 
 func TestClient_DeleteRecord(t *testing.T) {
-	client := mockBuilder("myKeyC").
-		Route("DELETE /cdn/4.0/domains/example.com/dns-records/recordId",
-			servermock.Noop(),
-		).
+	const apiKey = "myKeyC"
+
+	const (
+		domain   = "example.com"
+		recordID = "recordId"
+	)
+
+	client := mockBuilder(apiKey).
+		Route("DELETE /cdn/4.0/domains/"+domain+"/dns-records/"+recordID, nil).
 		Build(t)
 
-	err := client.DeleteRecord(t.Context(), "example.com", "recordId")
+	err := client.DeleteRecord(t.Context(), domain, recordID)
 	require.NoError(t, err)
 }
