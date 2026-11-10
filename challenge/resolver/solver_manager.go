@@ -111,6 +111,26 @@ func validate(core *api.Core, domain string, chlg acme.Challenge) error {
 	// After the path is sent, the ACME server will access our server.
 	// Repeatedly check the server for an updated status on our request.
 	operation := func() error {
+		if chlng.AuthorizationURL == "" {
+			resp, err := core.Challenges.Get(chlg.URL)
+			if err != nil {
+				return backoff.Permanent(err)
+			}
+
+			valid, err := checkChallengeStatus(resp)
+			if err != nil {
+				return backoff.Permanent(err)
+			}
+			if valid {
+				return nil
+			}
+
+			return fmt.Errorf(
+				"the server didn't respond to our request (status=%s)",
+				resp.Status,
+			)
+		}
+
 		authz, err := core.Authorizations.Get(chlng.AuthorizationURL)
 		if err != nil {
 			return backoff.Permanent(err)
